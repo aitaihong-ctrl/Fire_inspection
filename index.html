@@ -82,7 +82,7 @@
       return <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>{icons[name]}</svg>;
     };
 
-    // --- 模擬資料庫 ---
+    // --- 模擬資料庫 (已清空虛擬資料) ---
     const mockEquipment = [];
 
     const EXTINGUISHER_QUESTIONS = [
@@ -101,6 +101,7 @@
       { id: 'q5', text: '閥門是否有漏水現象?' }
     ];
 
+    // 已清空歷史虛擬紀錄
     const initialInspections = [];
 
     const GOOGLE_SHEET_API_URL = "https://script.google.com/macros/s/AKfycbwqc1u56dt1tuQiM5FQ_rBkq8zcBXNR0ahd8RYGLarg8O89N98by77eU9k8Hbd6Rjl_/exec"; 
