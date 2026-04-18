@@ -173,7 +173,7 @@
       };
 
       const handleScan = (equipmentId) => {
-        const eq = dbEquipment.find(e => e.id === equipmentId);
+        const eq = dbEquipment.find(e => (e.id || '').toString().trim() === (equipmentId || '').toString().trim());
         if (eq) {
           setScannedEq(eq);
           navigateTo('form');
@@ -184,12 +184,14 @@
 
       const submitInspection = async (record, selectedTypeIfMissing) => {
         const now = new Date();
-        // 寫入紀錄前確認是否覆蓋時，加入 Number() 嚴謹轉型
-        const existingIndex = inspections.findIndex(i => i.equipmentId === record.equipmentId && Number(i.year) === now.getFullYear() && Number(i.month) === (now.getMonth() + 1));
+        const safeRecordId = (record.equipmentId || '').toString().trim();
+        // 寫入紀錄前確認是否覆蓋時，加入 Number() 嚴謹轉型與 ID trim()
+        const existingIndex = inspections.findIndex(i => (i.equipmentId || '').toString().trim() === safeRecordId && Number(i.year) === now.getFullYear() && Number(i.month) === (now.getMonth() + 1));
         
         let newInspections = [...inspections];
         const newRecord = { 
           ...record, 
+          equipmentId: safeRecordId,
           date: now.toLocaleString(),
           month: now.getMonth() + 1,
           year: now.getFullYear()
@@ -204,7 +206,7 @@
 
         // 更新設備本機種類庫
         if (selectedTypeIfMissing) {
-          setDbEquipment(prev => prev.map(e => e.id === record.equipmentId ? { ...e, extinguisherType: selectedTypeIfMissing } : e));
+          setDbEquipment(prev => prev.map(e => (e.id || '').toString().trim() === safeRecordId ? { ...e, extinguisherType: selectedTypeIfMissing } : e));
         }
 
         setScannedEq(null);
@@ -228,7 +230,7 @@
                 headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                 body: JSON.stringify({
                   action: 'updateEquipmentType',
-                  id: record.equipmentId,
+                  id: safeRecordId,
                   newType: selectedTypeIfMissing
                 })
               });
@@ -310,7 +312,7 @@
             {activeTab === 'scanner' && <Scanner onScan={handleScan} mockEquipment={dbEquipment} />}
             {activeTab === 'form' && scannedEq && <InspectionForm equipment={scannedEq} onSubmit={submitInspection} onCancel={() => navigateTo('dashboard')} />}
             {activeTab === 'list' && <EquipmentList equipmentList={dbEquipment} inspections={inspections} currentYear={currentYear} currentMonth={currentMonth} onDetail={(id) => navigateTo('detail', id)} />}
-            {activeTab === 'detail' && selectedEqId && <InspectionReport equipment={dbEquipment.find(e => e.id === selectedEqId)} inspections={inspections} onBack={() => navigateTo('list')} />}
+            {activeTab === 'detail' && selectedEqId && <InspectionReport equipment={dbEquipment.find(e => (e.id || '').toString().trim() === (selectedEqId || '').toString().trim())} inspections={inspections} onBack={() => navigateTo('list')} />}
             {activeTab === 'records' && <RecordList equipmentList={dbEquipment} inspections={inspections} />}
             {activeTab === 'batch-print' && <BatchPrintView equipmentList={dbEquipment} inspections={inspections} onBack={() => navigateTo('dashboard')} />}
             {activeTab === 'admin' && <EquipmentManager equipmentList={dbEquipment} setDbEquipment={setDbEquipment} setAlertMsg={setAlertMsg} />}
@@ -403,8 +405,10 @@
       const [hasCamera, setHasCamera] = useState(true);
       const videoRef = useRef(null);
       const canvasRef = useRef(null);
-      const departments = [...new Set(mockEquipment.map(eq => eq.dept))];
-      const filteredEquipment = selectedDept ? mockEquipment.filter(eq => eq.dept === selectedDept) : [];
+      
+      // 修復：去除空白鍵造成的分類錯誤
+      const departments = [...new Set(mockEquipment.map(eq => (eq.dept || '').toString().trim()))].filter(Boolean);
+      const filteredEquipment = selectedDept ? mockEquipment.filter(eq => (eq.dept || '').toString().trim() === selectedDept) : [];
 
       useEffect(() => {
         let animationFrameId;
@@ -495,8 +499,8 @@
                   {departments.map(d => <option key={d} value={d}>{d}</option>)}
                 </select>
                 <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto">
-                  {filteredEquipment.map(eq => (
-                    <button key={eq.id} onClick={() => onScan(eq.id)} className="px-3 py-2 bg-gray-100 border rounded-lg text-sm hover:bg-red-50 hover:text-red-700">{eq.id} ({eq.type})</button>
+                  {filteredEquipment.map((eq, idx) => (
+                    <button key={`${eq.id}-${idx}`} onClick={() => onScan(eq.id)} className="px-3 py-2 bg-gray-100 border rounded-lg text-sm hover:bg-red-50 hover:text-red-700">{eq.id} ({eq.type})</button>
                   ))}
                 </div>
               </>
@@ -597,22 +601,39 @@
       const [showScannerModal, setShowScannerModal] = useState(false);
       const [selectedQrEq, setSelectedQrEq] = useState(null); 
       
-      const departments = [...new Set(equipmentList.map(eq => eq.dept))];
+      // 修復：去除空白鍵造成的分類錯誤
+      const departments = [...new Set(equipmentList.map(eq => (eq.dept || '').toString().trim()))].filter(Boolean);
 
       const getStatus = (id) => {
-        const record = inspections.find(i => i.equipmentId === id && Number(i.year) === Number(currentYear) && Number(i.month) === Number(currentMonth));
+        const safeEqId = (id || '').toString().trim();
+        const record = inspections.find(i => (i.equipmentId || '').toString().trim() === safeEqId && Number(i.year) === Number(currentYear) && Number(i.month) === Number(currentMonth));
         if (!record) return { label: '本月未點', color: 'bg-gray-100 text-gray-600' };
         if (record.hasAbnormal) return { label: '本月異常', color: 'bg-red-100 text-red-700' };
         return { label: '本月正常', color: 'bg-green-100 text-green-700' };
       };
 
+      // 核心修復：嚴格字串清理與 AND 交集邏輯
       const filteredList = equipmentList.filter(eq => {
-        const isDone = inspections.some(i => i.equipmentId === eq.id && Number(i.year) === Number(currentYear) && Number(i.month) === Number(currentMonth));
+        const safeEqId = (eq.id || '').toString().trim();
+        const safeEqDept = (eq.dept || '').toString().trim();
+        const safeEqType = (eq.type || '').toString().trim();
+
+        // 檢查是否已點檢 (嚴格比對年份與月份)
+        const isDone = inspections.some(i => (i.equipmentId || '').toString().trim() === safeEqId && Number(i.year) === Number(currentYear) && Number(i.month) === Number(currentMonth));
+        
+        // 1. 狀態篩選
         if (filter === 'done' && !isDone) return false;
         if (filter === 'pending' && isDone) return false;
-        if (deptFilter !== 'all' && eq.dept !== deptFilter) return false;
-        if (typeFilter !== 'all' && eq.type !== typeFilter) return false;
-        if (searchTerm && !eq.id.toLowerCase().includes(searchTerm.toLowerCase())) return false;
+        
+        // 2. 單位篩選
+        if (deptFilter !== 'all' && safeEqDept !== deptFilter) return false;
+        
+        // 3. 類型篩選
+        if (typeFilter !== 'all' && safeEqType !== typeFilter) return false;
+        
+        // 4. 關鍵字搜尋
+        if (searchTerm && !safeEqId.toLowerCase().includes(searchTerm.toLowerCase().trim())) return false;
+        
         return true;
       });
 
@@ -748,10 +769,11 @@
                 <p className="text-sm text-gray-400 mt-1">請至管理後台進行 CSV 匯入</p>
               </div>
             )}
-            {filteredList.map(eq => {
+            {/* 核心修復：加入 index 作為 Key 防止渲染錯亂 */}
+            {filteredList.map((eq, index) => {
               const status = getStatus(eq.id);
               return (
-                <div key={eq.id} onClick={()=>onDetail(eq.id)} className="bg-white p-4 rounded-xl flex items-center justify-between border border-gray-100 cursor-pointer hover:border-red-300 active:bg-gray-50 transition-colors">
+                <div key={`${eq.id}-${index}`} onClick={()=>onDetail(eq.id)} className="bg-white p-4 rounded-xl flex items-center justify-between border border-gray-100 cursor-pointer hover:border-red-300 active:bg-gray-50 transition-colors">
                   <div>
                     <div className="flex items-center gap-2 mb-1">
                       <span className="font-bold text-gray-800">{eq.id}</span>
@@ -787,7 +809,7 @@
       const questions = isExtinguisher ? EXTINGUISHER_QUESTIONS : HYDRANT_QUESTIONS;
       const formNo = isExtinguisher ? '04H0001' : '04H0002';
       const months = reportHalf === 'H1' ? [1,2,3,4,5,6] : [7,8,9,10,11,12];
-      const eqInspections = inspections.filter(i => i.equipmentId === equipment.id && Number(i.year) === reportYear);
+      const eqInspections = inspections.filter(i => (i.equipmentId || '').toString().trim() === (equipment.id || '').toString().trim() && Number(i.year) === reportYear);
 
       return (
         <>
@@ -913,7 +935,8 @@
       const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
 
       const filteredEquipmentList = equipmentList.filter(eq => {
-        if (typeFilter !== 'all' && eq.type !== typeFilter) return false;
+        const safeEqType = (eq.type || '').toString().trim();
+        if (typeFilter !== 'all' && safeEqType !== typeFilter) return false;
         return true;
       });
 
