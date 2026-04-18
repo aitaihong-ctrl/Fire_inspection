@@ -83,34 +83,7 @@
     };
 
     // --- 模擬資料庫 ---
-    const mockEquipment = [
-      { id: 'D013', type: '滅火器', extinguisherType: '乾粉', factory: '事務大樓', floor: '1F', zone: '梯廳', location: '事務大樓一樓南側電梯前方', dept: '總務課' },
-      { id: 'D023', type: '滅火器', extinguisherType: '乾粉', factory: '事務大樓', floor: '2F', zone: '走道', location: '事務大樓二樓走廊', dept: '技術二課' },
-      { id: 'D025', type: '滅火器', extinguisherType: 'CO2', factory: '事務大樓', floor: '3F', zone: '梯廳', location: '事務大樓三樓南側電梯前方', dept: '資訊室' },
-      { id: 'D011', type: '滅火器', extinguisherType: '', factory: '倉管設備區', floor: '1F', zone: '廚房外', location: '倉管課衣物庫房外(測試未設種類)', dept: '倉管課' }, 
-      { id: 'D035', type: '滅火器', extinguisherType: '乾粉', factory: '倉管設備區', floor: '1F', zone: '倉管課', location: '倉管PP倉', dept: '倉管課' },
-      { id: 'D041', type: '滅火器', extinguisherType: '乾粉', factory: '倉管設備區', floor: '1F', zone: '設備辦公室', location: '設備辦公室前', dept: '設備部' },
-      { id: 'D001', type: '滅火器', extinguisherType: '乾粉', factory: '廢水大樓', floor: 'B1', zone: '地下室', location: '廢水大樓地下室', dept: '環保部' },
-      { id: 'D002', type: '滅火器', extinguisherType: '乾粉', factory: '廢水大樓', floor: '1F', zone: '廠內', location: '廢水大樓一樓', dept: '環保部' },
-      { id: 'C098', type: '滅火器', extinguisherType: '乾粉', factory: '第三工廠', floor: '4F', zone: '廠內', location: '三廠四樓變電站外走道', dept: '設備部' },
-      { id: 'C064', type: '滅火器', extinguisherType: '乾粉', factory: '第三工廠', floor: '3F', zone: '廠內', location: '三廠三樓垂直電鍍前處理區走道', dept: '垂直電鍍課' },
-      { id: 'C030', type: '滅火器', extinguisherType: '乾粉', factory: '第三工廠', floor: '2F', zone: '廠內', location: '三廠二樓線路DES收板區', dept: '外層線路課' },
-      { id: 'C001', type: '滅火器', extinguisherType: '乾粉', factory: '第三工廠', floor: '1F', zone: '廠內', location: '三廠一樓外注辦公室外走道', dept: '外注課' },
-      { id: 'B076', type: '滅火器', extinguisherType: '乾粉', factory: '第二工廠', floor: '2F', zone: '廠內', location: '二廠二樓儀器室', dept: '技術部' },
-      { id: 'B001', type: '滅火器', extinguisherType: '乾粉', factory: '第二工廠', floor: '1F', zone: '廠內', location: '二廠一樓安全衛生室外走道', dept: '安全衛生室' },
-      { id: 'A289', type: '滅火器', extinguisherType: '乾粉', factory: '第一工廠', floor: 'RF', zone: '頂樓', location: '一廠四樓北側梯間(電梯機房內)', dept: '設備部' },
-      { id: 'A206', type: '滅火器', extinguisherType: '乾粉', factory: '第一工廠', floor: '3F', zone: '廠內', location: '一廠三樓電鍍前處理區外走道', dept: '電鍍課' },
-      { id: 'A136', type: '滅火器', extinguisherType: '乾粉', factory: '第一工廠', floor: '2F', zone: '廠內', location: '二廠二樓防焊前處理前方空地', dept: 'BGA防焊課' },
-      { id: 'A001', type: '滅火器', extinguisherType: '乾粉', factory: '第一工廠', floor: 'B1F', zone: '梯間', location: '一廠櫃台往地下室梯間', dept: '總務課' },
-      { id: 'A201', type: '滅火器', extinguisherType: 'CO2', factory: '第一工廠', floor: '3F', zone: '機房', location: '資訊機房', dept: '資訊室' },
-      { id: 'E001', type: '滅火器', extinguisherType: '乾粉', factory: '廠區外圍', floor: '外圍', zone: '外圍機房', location: '一廠外圍發送出貨區', dept: '外注課' },
-      { id: 'EF01-A', type: '消防栓', factory: '事務大樓', floor: '1F', zone: '事務大樓', location: '事務大樓一樓南側電梯前方', dept: '總務課' },
-      { id: 'EF01-B', type: '消防栓', factory: '廢水大樓', floor: 'B1', zone: '廢水大樓', location: '廢水大樓地下室', dept: '環保部' },
-      { id: 'DF01', type: '消防栓', factory: '第三工廠', floor: '1F', zone: '廠區內', location: '三廠一樓成型區集塵機房外走道', dept: '內層壓合課' },
-      { id: 'CF01', type: '消防栓', factory: '第二工廠', floor: '1F', zone: '廠區內', location: '內層外型區', dept: '內層壓合課' },
-      { id: 'BF01', type: '消防栓', factory: '第一工廠', floor: '1F', zone: '廠區內', location: '一廠櫃台往地下室梯間', dept: '總務課' },
-      { id: 'AF01', type: '消防栓', factory: '廠區外圍', floor: '外圍', zone: '一廠後方', location: '一廠後方外注打包區', dept: '外注課' }
-    ];
+    const mockEquipment = [];
 
     const EXTINGUISHER_QUESTIONS = [
       { id: 'q1', text: '壓力錶頭保持在綠色區及重量量測公斤數\n(小數點一位)' },
@@ -128,15 +101,7 @@
       { id: 'q5', text: '閥門是否有漏水現象?' }
     ];
 
-    const initialInspections = [
-      { equipmentId: 'A201', month: 11, year: 2025, hasAbnormal: false, weight: '12.5', answers: {q1:'normal', q2:'normal', q3:'normal', q4:'normal', q5:'normal'}, inspectorName: '林大衛', managerName: '陳組長', date: '2025/11/25 10:30:00' },
-      { equipmentId: 'A201', month: 12, year: 2025, hasAbnormal: false, weight: '12.4', answers: {q1:'normal', q2:'normal', q3:'normal', q4:'normal', q5:'normal'}, inspectorName: '王小明', managerName: '陳組長', date: '2025/12/20 09:15:00' },
-      { equipmentId: 'A201', month: 1, year: 2026, hasAbnormal: false, weight: '12.4', answers: {q1:'normal', q2:'normal', q3:'normal', q4:'normal', q5:'normal'}, inspectorName: '張三', managerName: '李四', date: '2026/01/15 10:00:00' },
-      { equipmentId: 'A201', month: 2, year: 2026, hasAbnormal: false, weight: '12.4', answers: {q1:'normal', q2:'normal', q3:'normal', q4:'normal', q5:'normal'}, inspectorName: '張三', managerName: '李四', date: '2026/02/10 11:30:00' },
-      { equipmentId: 'A201', month: 3, year: 2026, hasAbnormal: false, weight: '12.3', answers: {q1:'normal', q2:'normal', q3:'normal', q4:'normal', q5:'normal'}, inspectorName: '張三', managerName: '李四', date: '2026/03/12 09:45:00' },
-      { equipmentId: 'A201', month: 4, year: 2026, hasAbnormal: true, weight: '12.3', answers: {q1:'normal', q2:'abnormal', q3:'normal', q4:'normal', q5:'normal'}, remark:'鋼瓶生鏽', inspectorName: '張三', managerName: '李四', date: '2026/04/10 14:20:00' },
-      { equipmentId: 'AF01', month: 4, year: 2026, hasAbnormal: false, answers: {q1:'normal', q2:'normal', q3:'normal', q4:'normal', q5:'normal'}, inspectorName: '李大牛', managerName: '林課長', date: '2026/04/11 08:20:00' }
-    ];
+    const initialInspections = [];
 
     const GOOGLE_SHEET_API_URL = "https://script.google.com/macros/s/AKfycbwqc1u56dt1tuQiM5FQ_rBkq8zcBXNR0ahd8RYGLarg8O89N98by77eU9k8Hbd6Rjl_/exec"; 
     const ADMIN_PASSWORD = "admin123"; 
