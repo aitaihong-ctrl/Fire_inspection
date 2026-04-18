@@ -1,0 +1,1390 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>廠區消防設備點檢系統</title>
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+  <style>
+    body { overscroll-behavior-y: none; -webkit-tap-highlight-color: transparent; }
+    @media print {
+      @page { size: landscape; margin: 10mm; }
+      body { background-color: white !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .print\:hidden { display: none !important; }
+      .print\:max-w-none { max-width: none !important; }
+      .print\:w-full { width: 100% !important; }
+      .print\:p-0 { padding: 0 !important; }
+      .print\:m-0 { margin: 0 !important; }
+      .print\:bg-white { background-color: white !important; }
+      .print\:border-none { border: none !important; }
+      .print\:shadow-none { box-shadow: none !important; }
+      .print\:mb-2 { margin-bottom: 0.5rem !important; }
+      .print\:border-2 { border-width: 2px !important; }
+      .print\:border-black { border-color: #000 !important; }
+      .print\:overflow-visible { overflow: visible !important; }
+      .print\:min-w-full { min-width: 100% !important; }
+    }
+  </style>
+</head>
+<body class="bg-gray-50">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+    // --- 自訂圖示組件 ---
+    const Icon = ({ name, size = 24, className = "" }) => {
+      const icons = {
+        Home: <><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></>,
+        QrCode: <><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></>,
+        ClipboardList: <><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><line x1="9" y1="10" x2="15" y2="10"/><line x1="9" y1="14" x2="15" y2="14"/><line x1="9" y1="18" x2="15" y2="18"/></>,
+        CheckCircle: <><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></>,
+        CheckCircle2: <><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></>,
+        AlertTriangle: <><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></>,
+        Camera: <><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></>,
+        PenTool: <><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></>,
+        ChevronRight: <><polyline points="9 18 15 12 9 6"/></>,
+        Search: <><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></>,
+        XCircle: <><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></>,
+        FileText: <><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></>,
+        ArrowLeft: <><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></>,
+        Printer: <><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></>,
+        Calendar: <><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></>,
+        UploadCloud: <><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/><polyline points="16 16 12 12 8 16"/></>,
+        History: <><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></>,
+        Download: <><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></>,
+        Settings: <><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></>,
+        Lock: <><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></>,
+        Edit: <><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></>,
+        Trash2: <><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></>,
+        Save: <><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></>,
+        Plus: <><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></>,
+        FirefighterHose: <>
+          <path d="M5 10a6 6 0 0 1 12 0" />
+          <rect x="2" y="10" width="18" height="3" rx="1.5" />
+          <circle cx="11" cy="7" r="1.5" />
+          <path d="M5 13v1a6 6 0 0 0 12 0v-1" />
+          <circle cx="8.5" cy="15" r="1.2" fill="currentColor" stroke="none" />
+          <circle cx="13.5" cy="15" r="1.2" fill="currentColor" stroke="none" />
+          <path d="M10 17.5c.5.8 1.5.8 2 0" strokeLinecap="round" />
+          <path d="M18 16h2" strokeWidth="3" strokeLinecap="round" />
+          <circle cx="22" cy="15" r="1" fill="currentColor" stroke="none" />
+          <circle cx="20" cy="13" r="1.5" fill="currentColor" stroke="none" />
+        </>
+      };
+      return <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>{icons[name]}</svg>;
+    };
+
+    // --- 模擬資料庫 ---
+    const mockEquipment = [
+      { id: 'D013', type: '滅火器', extinguisherType: '乾粉', factory: '事務大樓', floor: '1F', zone: '梯廳', location: '事務大樓一樓南側電梯前方', dept: '總務課' },
+      { id: 'D023', type: '滅火器', extinguisherType: '乾粉', factory: '事務大樓', floor: '2F', zone: '走道', location: '事務大樓二樓走廊', dept: '技術二課' },
+      { id: 'D025', type: '滅火器', extinguisherType: 'CO2', factory: '事務大樓', floor: '3F', zone: '梯廳', location: '事務大樓三樓南側電梯前方', dept: '資訊室' },
+      { id: 'D011', type: '滅火器', extinguisherType: '', factory: '倉管設備區', floor: '1F', zone: '廚房外', location: '倉管課衣物庫房外(測試未設種類)', dept: '倉管課' }, 
+      { id: 'D035', type: '滅火器', extinguisherType: '乾粉', factory: '倉管設備區', floor: '1F', zone: '倉管課', location: '倉管PP倉', dept: '倉管課' },
+      { id: 'D041', type: '滅火器', extinguisherType: '乾粉', factory: '倉管設備區', floor: '1F', zone: '設備辦公室', location: '設備辦公室前', dept: '設備部' },
+      { id: 'D001', type: '滅火器', extinguisherType: '乾粉', factory: '廢水大樓', floor: 'B1', zone: '地下室', location: '廢水大樓地下室', dept: '環保部' },
+      { id: 'D002', type: '滅火器', extinguisherType: '乾粉', factory: '廢水大樓', floor: '1F', zone: '廠內', location: '廢水大樓一樓', dept: '環保部' },
+      { id: 'C098', type: '滅火器', extinguisherType: '乾粉', factory: '第三工廠', floor: '4F', zone: '廠內', location: '三廠四樓變電站外走道', dept: '設備部' },
+      { id: 'C064', type: '滅火器', extinguisherType: '乾粉', factory: '第三工廠', floor: '3F', zone: '廠內', location: '三廠三樓垂直電鍍前處理區走道', dept: '垂直電鍍課' },
+      { id: 'C030', type: '滅火器', extinguisherType: '乾粉', factory: '第三工廠', floor: '2F', zone: '廠內', location: '三廠二樓線路DES收板區', dept: '外層線路課' },
+      { id: 'C001', type: '滅火器', extinguisherType: '乾粉', factory: '第三工廠', floor: '1F', zone: '廠內', location: '三廠一樓外注辦公室外走道', dept: '外注課' },
+      { id: 'B076', type: '滅火器', extinguisherType: '乾粉', factory: '第二工廠', floor: '2F', zone: '廠內', location: '二廠二樓儀器室', dept: '技術部' },
+      { id: 'B001', type: '滅火器', extinguisherType: '乾粉', factory: '第二工廠', floor: '1F', zone: '廠內', location: '二廠一樓安全衛生室外走道', dept: '安全衛生室' },
+      { id: 'A289', type: '滅火器', extinguisherType: '乾粉', factory: '第一工廠', floor: 'RF', zone: '頂樓', location: '一廠四樓北側梯間(電梯機房內)', dept: '設備部' },
+      { id: 'A206', type: '滅火器', extinguisherType: '乾粉', factory: '第一工廠', floor: '3F', zone: '廠內', location: '一廠三樓電鍍前處理區外走道', dept: '電鍍課' },
+      { id: 'A136', type: '滅火器', extinguisherType: '乾粉', factory: '第一工廠', floor: '2F', zone: '廠內', location: '二廠二樓防焊前處理前方空地', dept: 'BGA防焊課' },
+      { id: 'A001', type: '滅火器', extinguisherType: '乾粉', factory: '第一工廠', floor: 'B1F', zone: '梯間', location: '一廠櫃台往地下室梯間', dept: '總務課' },
+      { id: 'A201', type: '滅火器', extinguisherType: 'CO2', factory: '第一工廠', floor: '3F', zone: '機房', location: '資訊機房', dept: '資訊室' },
+      { id: 'E001', type: '滅火器', extinguisherType: '乾粉', factory: '廠區外圍', floor: '外圍', zone: '外圍機房', location: '一廠外圍發送出貨區', dept: '外注課' },
+      { id: 'EF01-A', type: '消防栓', factory: '事務大樓', floor: '1F', zone: '事務大樓', location: '事務大樓一樓南側電梯前方', dept: '總務課' },
+      { id: 'EF01-B', type: '消防栓', factory: '廢水大樓', floor: 'B1', zone: '廢水大樓', location: '廢水大樓地下室', dept: '環保部' },
+      { id: 'DF01', type: '消防栓', factory: '第三工廠', floor: '1F', zone: '廠區內', location: '三廠一樓成型區集塵機房外走道', dept: '內層壓合課' },
+      { id: 'CF01', type: '消防栓', factory: '第二工廠', floor: '1F', zone: '廠區內', location: '內層外型區', dept: '內層壓合課' },
+      { id: 'BF01', type: '消防栓', factory: '第一工廠', floor: '1F', zone: '廠區內', location: '一廠櫃台往地下室梯間', dept: '總務課' },
+      { id: 'AF01', type: '消防栓', factory: '廠區外圍', floor: '外圍', zone: '一廠後方', location: '一廠後方外注打包區', dept: '外注課' }
+    ];
+
+    const EXTINGUISHER_QUESTIONS = [
+      { id: 'q1', text: '壓力錶頭保持在綠色區及重量量測公斤數\n(小數點一位)' },
+      { id: 'q2', text: '鋼瓶瓶身是否銹蝕' },
+      { id: 'q3', text: '配件是否鬆動脫落' },
+      { id: 'q4', text: '有效期限是否超過' },
+      { id: 'q5', text: '放置數量編號是否正確' }
+    ];
+
+    const HYDRANT_QUESTIONS = [
+      { id: 'q1', text: '水帶*2、水瞄*1是否定位、有無破損及變形' },
+      { id: 'q2', text: '是否有障礙物影響使用?' },
+      { id: 'q3', text: '外觀是否明確標示?' },
+      { id: 'q4', text: '紅色警示燈是否保持明亮?' },
+      { id: 'q5', text: '閥門是否有漏水現象?' }
+    ];
+
+    const initialInspections = [
+      { equipmentId: 'A201', month: 11, year: 2025, hasAbnormal: false, weight: '12.5', answers: {q1:'normal', q2:'normal', q3:'normal', q4:'normal', q5:'normal'}, inspectorName: '林大衛', managerName: '陳組長', date: '2025/11/25 10:30:00' },
+      { equipmentId: 'A201', month: 12, year: 2025, hasAbnormal: false, weight: '12.4', answers: {q1:'normal', q2:'normal', q3:'normal', q4:'normal', q5:'normal'}, inspectorName: '王小明', managerName: '陳組長', date: '2025/12/20 09:15:00' },
+      { equipmentId: 'A201', month: 1, year: 2026, hasAbnormal: false, weight: '12.4', answers: {q1:'normal', q2:'normal', q3:'normal', q4:'normal', q5:'normal'}, inspectorName: '張三', managerName: '李四', date: '2026/01/15 10:00:00' },
+      { equipmentId: 'A201', month: 2, year: 2026, hasAbnormal: false, weight: '12.4', answers: {q1:'normal', q2:'normal', q3:'normal', q4:'normal', q5:'normal'}, inspectorName: '張三', managerName: '李四', date: '2026/02/10 11:30:00' },
+      { equipmentId: 'A201', month: 3, year: 2026, hasAbnormal: false, weight: '12.3', answers: {q1:'normal', q2:'normal', q3:'normal', q4:'normal', q5:'normal'}, inspectorName: '張三', managerName: '李四', date: '2026/03/12 09:45:00' },
+      { equipmentId: 'A201', month: 4, year: 2026, hasAbnormal: true, weight: '12.3', answers: {q1:'normal', q2:'abnormal', q3:'normal', q4:'normal', q5:'normal'}, remark:'鋼瓶生鏽', inspectorName: '張三', managerName: '李四', date: '2026/04/10 14:20:00' },
+      { equipmentId: 'AF01', month: 4, year: 2026, hasAbnormal: false, answers: {q1:'normal', q2:'normal', q3:'normal', q4:'normal', q5:'normal'}, inspectorName: '李大牛', managerName: '林課長', date: '2026/04/11 08:20:00' }
+    ];
+
+    const GOOGLE_SHEET_API_URL = "https://script.google.com/macros/s/AKfycbwqc1u56dt1tuQiM5FQ_rBkq8zcBXNR0ahd8RYGLarg8O89N98by77eU9k8Hbd6Rjl_/exec"; 
+    const ADMIN_PASSWORD = "admin123"; 
+
+    function App() {
+      const [activeTab, setActiveTab] = useState('dashboard');
+      const [scannedEq, setScannedEq] = useState(null);
+      const [selectedEqId, setSelectedEqId] = useState(null); 
+      const [inspections, setInspections] = useState(initialInspections);
+      const [dbEquipment, setDbEquipment] = useState(mockEquipment); 
+      const [isLoading, setIsLoading] = useState(false);
+      const [alertMsg, setAlertMsg] = useState('');
+      
+      const [showAdminAuth, setShowAdminAuth] = useState(false);
+      const [authPassword, setAuthPassword] = useState('');
+
+      const currentDate = new Date();
+      const currentYear = currentDate.getFullYear();
+      const currentMonth = currentDate.getMonth() + 1;
+
+      const totalItems = dbEquipment.length;
+      const currentMonthInspections = inspections.filter(i => i.year === currentYear && i.month === currentMonth);
+      const completedItems = currentMonthInspections.length;
+      const abnormalItems = currentMonthInspections.filter(i => i.hasAbnormal).length;
+
+      useEffect(() => {
+        if (!GOOGLE_SHEET_API_URL) return; 
+        setIsLoading(true);
+        fetch(`${GOOGLE_SHEET_API_URL}?action=getEquipment`)
+          .then(res => res.json())
+          .then(data => { if (data && data.length > 0) setDbEquipment(data); })
+          .catch(err => console.error("獲取設備資料失敗:", err));
+          
+        fetch(`${GOOGLE_SHEET_API_URL}?action=getInspections`)
+          .then(res => res.json())
+          .then(data => {
+            if (data && data.length > 0) {
+              const parsedData = data.map(item => ({
+                ...item,
+                answers: typeof item.answers === 'string' ? JSON.parse(item.answers) : item.answers,
+                hasAbnormal: item.hasAbnormal === 'true' || item.hasAbnormal === true
+              }));
+              setInspections(parsedData);
+            }
+          })
+          .catch(err => console.error("獲取歷史紀錄失敗:", err))
+          .finally(() => setIsLoading(false));
+      }, []);
+
+      const navigateTo = (tab, eqId = null) => {
+        if (eqId) setSelectedEqId(eqId);
+        setActiveTab(tab);
+        window.scrollTo(0, 0);
+      };
+
+      const handleScan = (equipmentId) => {
+        const eq = dbEquipment.find(e => e.id === equipmentId);
+        if (eq) {
+          setScannedEq(eq);
+          navigateTo('form');
+        } else {
+          setAlertMsg(`找不到設備編號 [${equipmentId}]！請確認標籤是否為系統列管之設備。`);
+        }
+      };
+
+      const submitInspection = async (record, selectedTypeIfMissing) => {
+        const now = new Date();
+        const newRecord = { 
+          ...record, 
+          date: now.toLocaleString(),
+          month: now.getMonth() + 1,
+          year: now.getFullYear()
+        };
+
+        const existingIndex = inspections.findIndex(i => i.equipmentId === record.equipmentId && i.year === now.getFullYear() && i.month === (now.getMonth() + 1));
+        let newInspections = [...inspections];
+        if (existingIndex >= 0) newInspections[existingIndex] = newRecord;
+        else newInspections.push(newRecord);
+        setInspections(newInspections);
+
+        if (selectedTypeIfMissing) {
+          setDbEquipment(prev => prev.map(e => e.id === record.equipmentId ? { ...e, extinguisherType: selectedTypeIfMissing } : e));
+        }
+
+        setScannedEq(null);
+        navigateTo('success');
+        setTimeout(() => navigateTo('dashboard'), 2500);
+
+        if (GOOGLE_SHEET_API_URL) {
+          try {
+            await fetch(GOOGLE_SHEET_API_URL, {
+              method: 'POST',
+              headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+              body: JSON.stringify({
+                action: 'addInspection',
+                data: { ...newRecord, answers: JSON.stringify(newRecord.answers) }
+              })
+            });
+            
+            if (selectedTypeIfMissing) {
+              await fetch(GOOGLE_SHEET_API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({
+                  action: 'updateEquipmentType',
+                  id: record.equipmentId,
+                  newType: selectedTypeIfMissing
+                })
+              });
+            }
+          } catch (err) {
+            console.error("儲存至 Google Sheets 失敗:", err);
+          }
+        }
+      };
+
+      const handleAdminLogin = () => {
+        if (authPassword === ADMIN_PASSWORD) {
+          setShowAdminAuth(false);
+          setAuthPassword('');
+          navigateTo('admin');
+        } else {
+          setAlertMsg("密碼錯誤，請重新輸入！");
+        }
+      };
+
+      return (
+        <div className="min-h-screen bg-gray-50 pb-20 font-sans text-gray-800 print:bg-white">
+          
+          {alertMsg && (
+            <div className="fixed inset-0 z-[200] bg-black/50 flex items-center justify-center p-4">
+              <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl animate-in zoom-in-95 text-center">
+                <Icon name="AlertTriangle" size={48} className="mx-auto text-yellow-500 mb-4" />
+                <p className="text-gray-800 font-bold mb-6">{alertMsg}</p>
+                <button onClick={() => setAlertMsg('')} className="w-full py-3 bg-red-600 text-white font-bold rounded-xl shadow-md transition-colors hover:bg-red-700">確定</button>
+              </div>
+            </div>
+          )}
+
+          {showAdminAuth && (
+            <div className="fixed inset-0 z-[200] bg-black/50 flex items-center justify-center p-4 backdrop-blur-sm">
+              <div className="bg-white rounded-2xl p-8 max-w-sm w-full shadow-2xl animate-in zoom-in-95">
+                <div className="bg-red-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Icon name="Lock" size={32} className="text-red-600" />
+                </div>
+                <h2 className="text-xl font-bold text-center text-gray-800 mb-2">設備庫管理權限</h2>
+                <p className="text-sm text-gray-500 text-center mb-6">請輸入防火管理人密碼以解鎖編輯功能。</p>
+                <input 
+                  type="password" 
+                  value={authPassword} 
+                  onChange={e => setAuthPassword(e.target.value)} 
+                  className="w-full border-2 border-gray-200 rounded-xl p-3 mb-6 focus:border-red-500 outline-none text-center font-bold tracking-widest transition-colors" 
+                  placeholder="請輸入密碼" 
+                  autoFocus
+                  onKeyDown={e => e.key === 'Enter' && handleAdminLogin()}
+                />
+                <div className="flex gap-3">
+                  <button onClick={() => {setShowAdminAuth(false); setAuthPassword('');}} className="flex-1 py-3 bg-gray-100 text-gray-600 rounded-xl font-bold hover:bg-gray-200 transition-colors">取消</button>
+                  <button onClick={handleAdminLogin} className="flex-1 py-3 bg-red-600 text-white rounded-xl font-bold shadow-md hover:bg-red-700 transition-colors">解鎖</button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <header className="bg-red-700 text-white p-4 shadow-md sticky top-0 z-10 flex justify-between items-center print:hidden">
+            <div className="flex items-center gap-2">
+              <Icon name="FirefighterHose" size={26} className="text-yellow-300" />
+              <h1 className="text-xl font-bold tracking-wider">廠區消防設備點檢</h1>
+            </div>
+            <div className="text-sm bg-red-800 px-3 py-1 rounded-full border border-red-600">
+              防火管理人
+            </div>
+          </header>
+
+          <main className={`p-4 mx-auto print:max-w-none print:w-full print:p-0 print:m-0 ${activeTab === 'detail' || activeTab === 'batch-print' ? 'max-w-4xl' : 'max-w-lg'}`}>
+            {activeTab === 'dashboard' && (
+              <Dashboard 
+                total={totalItems} completed={completedItems} abnormal={abnormalItems} 
+                currentYear={currentYear} currentMonth={currentMonth}
+                onScan={() => navigateTo('scanner')} onViewList={() => navigateTo('list')}
+                onBatchPrint={() => navigateTo('batch-print')}
+              />
+            )}
+            
+            {activeTab === 'scanner' && <Scanner onScan={handleScan} mockEquipment={dbEquipment} />}
+            {activeTab === 'form' && scannedEq && <InspectionForm equipment={scannedEq} onSubmit={submitInspection} onCancel={() => navigateTo('dashboard')} />}
+            {activeTab === 'list' && <EquipmentList equipmentList={dbEquipment} inspections={inspections} currentYear={currentYear} currentMonth={currentMonth} onDetail={(id) => navigateTo('detail', id)} />}
+            {activeTab === 'detail' && selectedEqId && <InspectionReport equipment={dbEquipment.find(e => e.id === selectedEqId)} inspections={inspections} onBack={() => navigateTo('list')} />}
+            {activeTab === 'records' && <RecordList equipmentList={dbEquipment} inspections={inspections} />}
+            {activeTab === 'batch-print' && <BatchPrintView equipmentList={dbEquipment} inspections={inspections} onBack={() => navigateTo('dashboard')} />}
+            {activeTab === 'admin' && <EquipmentManager equipmentList={dbEquipment} setDbEquipment={setDbEquipment} setAlertMsg={setAlertMsg} />}
+            
+            {activeTab === 'success' && (
+              <div className="flex flex-col items-center justify-center py-20 text-center animate-in fade-in zoom-in duration-300 print:hidden">
+                <Icon name="CheckCircle2" size={80} className="text-green-500 mb-4 mx-auto" />
+                <h2 className="text-2xl font-bold text-gray-800 mb-2">點檢上傳成功！</h2>
+              </div>
+            )}
+          </main>
+
+          <nav className="fixed bottom-0 w-full bg-white border-t border-gray-200 flex justify-around p-1 pb-4 shadow-[0_-2px_10px_rgba(0,0,0,0.05)] z-20 print:hidden">
+            <button onClick={() => navigateTo('dashboard')} className={`flex flex-col items-center p-2 w-1/5 ${activeTab === 'dashboard' ? 'text-red-700' : 'text-gray-400'}`}>
+              <Icon name="Home" size={24} /><span className="text-xs mt-1 font-medium">首頁</span>
+            </button>
+            <button onClick={() => navigateTo('list')} className={`flex flex-col items-center p-2 w-1/5 ${activeTab === 'list' || activeTab === 'detail' ? 'text-red-700' : 'text-gray-400'}`}>
+              <Icon name="ClipboardList" size={24} /><span className="text-xs mt-1 font-medium">清單</span>
+            </button>
+            <button onClick={() => navigateTo('scanner')} className="flex flex-col items-center p-2 w-1/5 -mt-6">
+              <div className="bg-red-600 text-white p-4 rounded-full shadow-lg border-4 border-white"><Icon name="QrCode" size={26} /></div>
+              <span className={`text-xs mt-1 font-medium ${activeTab === 'scanner' ? 'text-red-700' : 'text-gray-600'}`}>掃碼</span>
+            </button>
+            <button onClick={() => navigateTo('records')} className={`flex flex-col items-center p-2 w-1/5 ${activeTab === 'records' ? 'text-red-700' : 'text-gray-400'}`}>
+              <Icon name="History" size={24} /><span className="text-xs mt-1 font-medium">明細</span>
+            </button>
+            <button onClick={() => setShowAdminAuth(true)} className={`flex flex-col items-center p-2 w-1/5 ${activeTab === 'admin' ? 'text-red-700' : 'text-gray-400'}`}>
+              <Icon name="Settings" size={24} /><span className="text-xs mt-1 font-medium">管理</span>
+            </button>
+          </nav>
+        </div>
+      );
+    }
+
+    // --- Dashboard ---
+    function Dashboard({ total, completed, abnormal, currentYear, currentMonth, onScan, onViewList, onBatchPrint }) {
+      const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
+      return (
+        <div className="space-y-6 animate-in fade-in">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+            <h2 className="text-gray-500 text-sm font-semibold mb-4 flex items-center gap-2"><Icon name="Calendar" size={18} /> 當月點檢進度 ({currentYear}年 {currentMonth}月)</h2>
+            <div className="flex items-center justify-between">
+              <div className="relative w-24 h-24 flex items-center justify-center">
+                <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                  <path strokeDasharray="100, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#f3f4f6" strokeWidth="3" />
+                  <path strokeDasharray={`${percent}, 100`} d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#dc2626" strokeWidth="3" strokeLinecap="round" className="transition-all duration-1000 ease-out" />
+                </svg>
+                <div className="absolute flex flex-col items-center"><span className="text-2xl font-bold text-gray-800">{percent}%</span></div>
+              </div>
+              <div className="flex-1 ml-6 space-y-3">
+                <div className="flex justify-between items-center"><span className="text-sm text-gray-500">系統列管總數</span><span className="font-semibold text-gray-800">{total} 支</span></div>
+                <div className="flex justify-between items-center"><span className="text-sm text-gray-500">本月已完成</span><span className="font-semibold text-green-600">{completed} 支</span></div>
+                <div className="flex justify-between items-center"><span className="text-sm text-gray-500">本月提報異常</span><span className="font-semibold text-red-600">{abnormal} 支</span></div>
+              </div>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <button onClick={onScan} className="bg-red-50 text-red-700 p-4 rounded-2xl flex flex-col items-center justify-center border border-red-100 shadow-sm hover:bg-red-100 transition"><Icon name="QrCode" size={32} className="mb-2" /><span className="font-semibold">現場掃碼</span></button>
+            <button onClick={onViewList} className="bg-blue-50 text-blue-700 p-4 rounded-2xl flex flex-col items-center justify-center border border-blue-100 shadow-sm hover:bg-blue-100 transition"><Icon name="FileText" size={32} className="mb-2" /><span className="font-semibold">設備清單</span></button>
+          </div>
+          
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+             <div className="flex items-center justify-between mb-3"><h2 className="text-gray-800 font-semibold flex items-center gap-2"><Icon name="Printer" size={18} /> 批次報表列印</h2></div>
+             <p className="text-xs text-gray-500 mb-3">一鍵產出全廠區指定年度與半年度的所有設備點檢卡，支援直接列印或匯出成 PDF 歸檔。</p>
+             <button onClick={onBatchPrint} className="w-full bg-blue-600 text-white py-2.5 rounded-xl text-sm font-bold flex justify-center items-center gap-2 hover:bg-blue-700 transition-colors shadow-sm"><Icon name="Printer" size={18} /> 進入批次列印</button>
+          </div>
+          
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+             <div className="flex items-center justify-between mb-4"><h2 className="text-gray-800 font-semibold">當月待處理異常</h2></div>
+             {abnormal > 0 ? (
+               <div className="p-3 bg-red-50 border border-red-100 rounded-xl flex items-start gap-3"><Icon name="AlertTriangle" className="text-red-500 shrink-0" size={20} /><div><p className="text-sm font-semibold text-red-800">發現 {abnormal} 件設備異常</p><p className="text-xs text-red-600 mt-1">請盡速通知相關設備單位處理修繕。</p></div></div>
+             ) : (<div className="text-center py-6 text-gray-400"><Icon name="CheckCircle2" size={32} className="mx-auto mb-2 text-green-400" /><p className="text-sm">本月目前無異常設備</p></div>)}
+          </div>
+        </div>
+      );
+    }
+
+    // --- 設備管理員 (匯入與編輯) ---
+    function EquipmentManager({ equipmentList, setDbEquipment, setAlertMsg }) {
+      const [editingEq, setEditingEq] = useState(null);
+      const [isAdding, setIsAdding] = useState(false);
+      const [searchWord, setSearchWord] = useState('');
+      const fileInputRef = useRef(null);
+
+      const parseCSVLine = (text) => {
+        const result = [];
+        let cur = '';
+        let inQuote = false;
+        for (let i = 0; i < text.length; i++) {
+          if (inQuote) {
+            if (text[i] === '"') {
+              if (i < text.length - 1 && text[i + 1] === '"') { cur += '"'; i++; }
+              else { inQuote = false; }
+            } else { cur += text[i]; }
+          } else {
+            if (text[i] === '"') { inQuote = true; }
+            else if (text[i] === ',') { result.push(cur.trim()); cur = ''; }
+            else { cur += text[i]; }
+          }
+        }
+        result.push(cur.trim());
+        return result;
+      };
+
+      const handleFileUpload = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+          const text = evt.target.result;
+          const lines = text.split(/\r?\n/);
+          if (lines.length < 2) {
+            setAlertMsg("CSV 檔案格式錯誤或為空檔。");
+            return;
+          }
+          
+          const headers = parseCSVLine(lines[0]);
+          if (!headers.includes('id') || !headers.includes('type')) {
+            setAlertMsg("表頭必須包含 'id' 與 'type' 欄位。");
+            return;
+          }
+
+          const newEquipmentList = [];
+          for (let i = 1; i < lines.length; i++) {
+            if (!lines[i].trim()) continue;
+            const values = parseCSVLine(lines[i]);
+            const obj = {};
+            headers.forEach((h, idx) => {
+              obj[h] = values[idx] || '';
+            });
+            if (obj.id) newEquipmentList.push(obj);
+          }
+
+          setDbEquipment(newEquipmentList);
+          setAlertMsg(`成功匯入 ${newEquipmentList.length} 筆設備資料！\n(備註：目前僅更新本機快取，若需同步雲端請通知 IT 更新 Google Apps Script)`);
+          if(fileInputRef.current) fileInputRef.current.value = '';
+        };
+        reader.readAsText(file);
+      };
+
+      const handleSaveEq = (e) => {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        const newEq = {
+          id: formData.get('id').toUpperCase(),
+          type: formData.get('type'),
+          extinguisherType: formData.get('extinguisherType') || '',
+          factory: formData.get('factory') || '',
+          floor: formData.get('floor') || '',
+          zone: formData.get('zone') || '',
+          location: formData.get('location') || '',
+          dept: formData.get('dept') || ''
+        };
+
+        if (isAdding) {
+          if (equipmentList.some(eq => eq.id === newEq.id)) {
+            setAlertMsg(`編號 ${newEq.id} 已存在，請使用不同編號。`);
+            return;
+          }
+          setDbEquipment([newEq, ...equipmentList]);
+          setAlertMsg(`已成功新增設備：${newEq.id}`);
+        } else {
+          setDbEquipment(equipmentList.map(eq => eq.id === newEq.id ? newEq : eq));
+          setAlertMsg(`已成功更新設備：${newEq.id}`);
+        }
+        setEditingEq(null);
+        setIsAdding(false);
+      };
+
+      const handleDelete = (id) => {
+        if (window.confirm(`確定要刪除設備 ${id} 嗎？此操作將影響歷史紀錄關聯。`)) {
+          setDbEquipment(equipmentList.filter(eq => eq.id !== id));
+        }
+      };
+
+      const filteredList = equipmentList.filter(eq => eq.id.toLowerCase().includes(searchWord.toLowerCase()) || eq.location.includes(searchWord));
+
+      return (
+        <div className="space-y-4 animate-in fade-in pb-10">
+          {(editingEq || isAdding) && (
+            <div className="fixed inset-0 z-[250] bg-black/60 flex items-center justify-center p-4 backdrop-blur-sm">
+              <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl animate-in zoom-in-95 overflow-hidden flex flex-col max-h-[90vh]">
+                <header className="bg-gray-900 text-white p-4 flex justify-between items-center">
+                  <h2 className="font-bold flex items-center gap-2"><Icon name={isAdding ? "Plus" : "Edit"} size={20}/> {isAdding ? "新增設備" : "編輯設備"}</h2>
+                  <button onClick={() => {setEditingEq(null); setIsAdding(false);}}><Icon name="XCircle" size={24}/></button>
+                </header>
+                <form onSubmit={handleSaveEq} className="p-5 overflow-y-auto space-y-4">
+                  <div>
+                    <label className="text-xs font-bold text-gray-500">設備編號 (ID) *</label>
+                    <input name="id" defaultValue={editingEq?.id} readOnly={!isAdding} required className={`w-full border p-2.5 rounded-lg mt-1 outline-none ${!isAdding ? 'bg-gray-100 text-gray-500' : 'focus:border-red-500'}`} placeholder="如 A001" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs font-bold text-gray-500">設備種類 *</label>
+                      <select name="type" defaultValue={editingEq?.type || '滅火器'} className="w-full border p-2.5 rounded-lg mt-1 outline-none focus:border-red-500">
+                        <option>滅火器</option><option>消防栓</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-gray-500">滅火器類型</label>
+                      <select name="extinguisherType" defaultValue={editingEq?.extinguisherType || ''} className="w-full border p-2.5 rounded-lg mt-1 outline-none focus:border-red-500">
+                        <option value="">無</option><option>乾粉</option><option>CO2</option><option>泡沫</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs font-bold text-gray-500">廠區名稱</label>
+                      <input name="factory" defaultValue={editingEq?.factory} className="w-full border p-2.5 rounded-lg mt-1 outline-none focus:border-red-500" placeholder="如 第一工廠" />
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-gray-500">樓層</label>
+                      <input name="floor" defaultValue={editingEq?.floor} className="w-full border p-2.5 rounded-lg mt-1 outline-none focus:border-red-500" placeholder="如 1F" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs font-bold text-gray-500">責任單位</label>
+                      <input name="dept" defaultValue={editingEq?.dept} className="w-full border p-2.5 rounded-lg mt-1 outline-none focus:border-red-500" placeholder="如 總務部" />
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-gray-500">區域劃分</label>
+                      <input name="zone" defaultValue={editingEq?.zone} className="w-full border p-2.5 rounded-lg mt-1 outline-none focus:border-red-500" placeholder="如 梯廳" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-gray-500">詳細位置</label>
+                    <input name="location" defaultValue={editingEq?.location} className="w-full border p-2.5 rounded-lg mt-1 outline-none focus:border-red-500" placeholder="詳細位置描述" />
+                  </div>
+                  
+                  <button type="submit" className="w-full py-3 bg-red-600 text-white rounded-xl font-bold flex justify-center items-center gap-2 mt-4 shadow-md hover:bg-red-700">
+                    <Icon name="Save" size={20}/> 儲存設定
+                  </button>
+                </form>
+              </div>
+            </div>
+          )}
+
+          <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
+            <h2 className="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2"><Icon name="UploadCloud" size={22} className="text-blue-600"/> 批次匯入 CSV (Excel)</h2>
+            <p className="text-sm text-gray-500 mb-4 leading-relaxed">您可以直接上傳以 Excel 編輯並另存為 `.csv` 格式的設備清單。上傳後將直接<strong className="text-red-600">覆蓋取代</strong>目前的清單資料。</p>
+            
+            <input type="file" accept=".csv" ref={fileInputRef} className="hidden" onChange={handleFileUpload} />
+            <div className="flex gap-3">
+              <button onClick={() => fileInputRef.current.click()} className="flex-1 py-3 bg-blue-50 text-blue-700 border border-blue-200 rounded-xl font-bold hover:bg-blue-100 transition-colors flex justify-center items-center gap-2 shadow-sm">
+                <Icon name="UploadCloud" size={18}/> 選擇 CSV 檔案並匯入
+              </button>
+            </div>
+          </div>
+
+          <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="font-bold text-gray-800 flex items-center gap-2"><Icon name="Settings" size={20}/> 設備單筆管理</h2>
+              <button onClick={() => setIsAdding(true)} className="bg-green-600 text-white text-sm px-3 py-1.5 rounded-lg font-bold flex items-center gap-1 hover:bg-green-700 shadow-sm"><Icon name="Plus" size={16}/> 新增</button>
+            </div>
+            
+            <div className="relative mb-4">
+              <input type="text" placeholder="搜尋設備編號或位置..." className="w-full bg-gray-100 rounded-xl py-2.5 pl-10 pr-4 outline-none text-sm focus:ring-2 focus:ring-red-200" value={searchWord} onChange={e=>setSearchWord(e.target.value)}/>
+              <Icon name="Search" size={18} className="absolute left-3 top-3 text-gray-400" />
+            </div>
+
+            <div className="space-y-3">
+              <p className="text-xs text-gray-500 font-bold px-1">目前列管總計 {filteredList.length} 筆設備</p>
+              {filteredList.map(eq => (
+                <div key={eq.id} className="p-3 border border-gray-200 rounded-xl flex items-center justify-between bg-gray-50 hover:bg-white transition-colors">
+                  <div>
+                    <div className="font-bold text-gray-800 flex items-center gap-2">{eq.id} <span className="text-[10px] bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full">{eq.type}</span></div>
+                    <div className="text-xs text-gray-500 mt-1">{eq.factory} {eq.floor} | {eq.dept}</div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={() => setEditingEq(eq)} className="p-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200"><Icon name="Edit" size={16}/></button>
+                    <button onClick={() => handleDelete(eq.id)} className="p-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200"><Icon name="Trash2" size={16}/></button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // --- 點檢明細查詢與匯出 ---
+    function RecordList({ equipmentList, inspections }) {
+      const currentYear = new Date().getFullYear();
+      const currentMonth = new Date().getMonth() + 1;
+      const [queryMode, setQueryMode] = useState('all'); 
+      const [filterYear, setFilterYear] = useState(currentYear);
+      const [filterMonth, setFilterMonth] = useState(currentMonth);
+      const [filterStatus, setFilterStatus] = useState('all');
+      const [filterType, setFilterType] = useState('all');
+
+      const isUninspectedMode = queryMode === 'uninspected';
+      const isAllMode = queryMode === 'all';
+
+      useEffect(() => {
+        if (isUninspectedMode || isAllMode) {
+          if (filterYear === 'all') setFilterYear(currentYear);
+          if (filterMonth === 'all') setFilterMonth(currentMonth);
+        }
+      }, [isUninspectedMode, isAllMode, currentYear, currentMonth, filterYear, filterMonth]);
+
+      const recordsWithEq = inspections.map(record => {
+        const eq = equipmentList.find(e => e.id === record.equipmentId) || {};
+        return { ...record, equipment: eq };
+      });
+
+      const filteredInspected = recordsWithEq.filter(record => {
+        if (filterYear !== 'all' && record.year !== Number(filterYear)) return false;
+        if (filterMonth !== 'all' && record.month !== Number(filterMonth)) return false;
+        if (filterType !== 'all' && record.equipment.type !== filterType) return false;
+        if (filterStatus === 'abnormal' && !record.hasAbnormal) return false;
+        if (filterStatus === 'normal' && record.hasAbnormal) return false;
+        return true;
+      }).map(r => ({ ...r, isUninspected: false }));
+
+      const filteredUninspected = equipmentList.filter(eq => {
+        if (filterYear === 'all' || filterMonth === 'all') return false; 
+        if (filterType !== 'all' && eq.type !== filterType) return false;
+        const isDone = inspections.some(i => i.equipmentId === eq.id && i.year === Number(filterYear) && i.month === Number(filterMonth));
+        return !isDone;
+      }).map(eq => ({
+        equipmentId: eq.id, equipment: eq, isUninspected: true, year: filterYear, month: filterMonth,
+        hasAbnormal: false, remark: '', inspectorName: '-', managerName: '-', weight: '', date: '-'
+      }));
+
+      let displayList = [];
+      if (queryMode === 'inspected') {
+        displayList = filteredInspected.sort((a, b) => new Date(b.date) - new Date(a.date));
+      } else if (queryMode === 'uninspected') {
+        displayList = filteredUninspected;
+      } else {
+        displayList = [...filteredInspected, ...filteredUninspected].sort((a, b) => a.equipmentId.localeCompare(b.equipmentId));
+      }
+
+      const handleExportCSV = () => {
+        if (displayList.length === 0) return;
+        try {
+          const headers = ['查詢年份', '查詢月份', '設備編號', '設備種類', '滅火器種類', '廠區', '樓層', '區域', '責任單位', '狀態', '點檢時間', '檢查人姓名', '火源責任者姓名', '重量', '備註'];
+          const csvRows = [headers.join(',')];
+
+          displayList.forEach(record => {
+            const eq = record.equipment;
+            const statusLabel = record.isUninspected ? '尚未點檢' : (record.hasAbnormal ? '異常' : '正常');
+            const row = [
+              record.year || filterYear, record.month || filterMonth, record.equipmentId, eq.type || '', eq.extinguisherType || '', eq.factory || '', eq.floor || '', eq.zone || '', eq.dept || '',
+              statusLabel, record.date || '-', record.inspectorName || '-', record.managerName || '-', record.weight || '-', `"${(record.remark || '').replace(/"/g, '""')}"`
+            ];
+            csvRows.push(row.join(','));
+          });
+
+          const csvContent = "\uFEFF" + csvRows.join('\n');
+          const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          const fileNameMode = queryMode === 'all' ? '全部明細總表' : (queryMode === 'uninspected' ? '未點檢名單' : '已點檢紀錄');
+          link.setAttribute('download', `${fileNameMode}_${filterYear}年${filterMonth !== 'all' ? filterMonth + '月' : '全'}.csv`);
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+        } catch (err) {
+          alert("匯出失敗，若在預覽畫面中請另外開新分頁執行，或直接部署至伺服器。");
+        }
+      };
+
+      const disableExport = displayList.length === 0 || ((isUninspectedMode || isAllMode) && (filterYear === 'all' || filterMonth === 'all'));
+
+      return (
+        <div className="space-y-4 animate-in fade-in">
+          <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+            <h2 className="font-bold text-gray-800 mb-4 flex items-center gap-2"><Icon name="History" size={20}/> 歷史明細查詢</h2>
+            
+            <div className="flex gap-2 mb-4 bg-gray-100 p-1 rounded-lg">
+              <button onClick={() => setQueryMode('all')} className={`flex-1 py-1.5 text-sm font-bold rounded-md transition-colors ${queryMode === 'all' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>全部明細</button>
+              <button onClick={() => setQueryMode('inspected')} className={`flex-1 py-1.5 text-sm font-bold rounded-md transition-colors ${queryMode === 'inspected' ? 'bg-white text-green-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>已點檢</button>
+              <button onClick={() => setQueryMode('uninspected')} className={`flex-1 py-1.5 text-sm font-bold rounded-md transition-colors ${queryMode === 'uninspected' ? 'bg-white text-red-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>未點檢</button>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-2 mb-3">
+              <select className="border border-gray-300 rounded-lg p-2 text-sm outline-none focus:border-red-500" value={filterYear} onChange={e=>setFilterYear(e.target.value)}>
+                {!isUninspectedMode && !isAllMode && <option value="all">所有年份</option>}
+                <option value={2026}>2026 年</option><option value={2025}>2025 年</option><option value={2024}>2024 年</option>
+              </select>
+              <select className="border border-gray-300 rounded-lg p-2 text-sm outline-none focus:border-red-500" value={filterMonth} onChange={e=>setFilterMonth(e.target.value)}>
+                {!isUninspectedMode && !isAllMode && <option value="all">全年月份</option>}
+                {[1,2,3,4,5,6,7,8,9,10,11,12].map(m => <option key={m} value={m}>{m} 月</option>)}
+              </select>
+              <select className="border border-gray-300 rounded-lg p-2 text-sm outline-none focus:border-red-500" value={filterType} onChange={e=>setFilterType(e.target.value)}>
+                <option value="all">所有設備</option>
+                <option value="滅火器">滅火器</option>
+                <option value="消防栓">消防栓</option>
+              </select>
+              {queryMode === 'inspected' ? (
+                <select className="border border-gray-300 rounded-lg p-2 text-sm outline-none focus:border-red-500" value={filterStatus} onChange={e=>setFilterStatus(e.target.value)}>
+                  <option value="all">全狀態</option><option value="normal">僅正常</option><option value="abnormal">僅異常</option>
+                </select>
+              ) : (
+                <div className="border border-gray-200 bg-gray-50 text-gray-500 rounded-lg p-2 text-sm flex items-center justify-center font-bold">
+                  {isUninspectedMode ? '尚未點檢' : '混合狀態'}
+                </div>
+              )}
+            </div>
+            
+            <button onClick={handleExportCSV} disabled={disableExport} className={`w-full py-2.5 rounded-xl font-bold flex justify-center items-center gap-2 transition-colors ${!disableExport ? (isUninspectedMode ? 'bg-red-600 hover:bg-red-700' : (isAllMode ? 'bg-blue-600 hover:bg-blue-700' : 'bg-green-600 hover:bg-green-700')) + ' text-white shadow-md' : 'bg-gray-200 text-gray-400'}`}>
+              <Icon name="Download" size={18} />匯出 {displayList.length} 筆明細 (Excel)
+            </button>
+          </div>
+
+          <div className="space-y-3 pb-8">
+            <p className="text-xs text-gray-500 font-bold px-1">共找到 {displayList.length} 筆資料：</p>
+            {displayList.map((record, index) => {
+              const eq = record.equipment;
+              const isUninspected = record.isUninspected;
+              
+              return (
+                <div key={`${record.equipmentId}-${index}`} className={`bg-white p-4 rounded-xl shadow-sm border ${isUninspected ? 'border-red-100 relative overflow-hidden' : 'border-gray-100'} flex items-start gap-3`}>
+                  {isUninspected && <div className="absolute left-0 top-0 bottom-0 w-1 bg-red-400"></div>}
+                  
+                  <div className={`mt-1 p-2 rounded-full ${isUninspected ? 'bg-red-50 text-red-500' : (record.hasAbnormal ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600')}`}>
+                    <Icon name={isUninspected ? "AlertTriangle" : (record.hasAbnormal ? "XCircle" : "CheckCircle2")} size={isUninspected ? 20 : 24} />
+                  </div>
+                  
+                  <div className="flex-1">
+                    <div className="flex justify-between items-start mb-1">
+                      <span className="font-bold text-gray-800 text-base">{record.equipmentId}</span>
+                      {isUninspected ? (
+                        <span className="text-xs font-bold text-red-600 bg-red-100 px-2 py-0.5 rounded">未點檢</span>
+                      ) : (
+                        <span className="text-xs text-gray-400">{record.date}</span>
+                      )}
+                    </div>
+                    <div className="text-sm font-medium text-gray-700 mt-0.5">
+                      {eq.type}{eq.extinguisherType ? <span className="ml-1 text-xs text-gray-500 font-normal">({eq.extinguisherType})</span> : ''} - {eq.factory} ({eq.floor})
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1">
+                      {isUninspected ? (
+                        <>{eq.location} | 責任：{eq.dept}</>
+                      ) : (
+                        <>單位：{eq.dept} | 檢查人：{record.inspectorName}</>
+                      )}
+                    </div>
+                    
+                    {!isUninspected && record.weight && (
+                      <div className="text-xs text-blue-700 mt-1 bg-blue-50 inline-block px-2 py-0.5 rounded">測量重量：{record.weight}</div>
+                    )}
+                    {!isUninspected && record.hasAbnormal && record.remark && (
+                      <div className="text-xs text-red-700 mt-1 bg-red-50 p-2 rounded-lg border border-red-100"><strong>異常說明：</strong>{record.remark}</div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+            {displayList.length === 0 && <div className="text-center py-10 text-gray-400 text-sm">此條件下查無任何資料</div>}
+          </div>
+        </div>
+      );
+    }
+
+    // --- Scanner ---
+    function Scanner({ onScan, mockEquipment }) {
+      const [selectedDept, setSelectedDept] = useState('');
+      const [hasCamera, setHasCamera] = useState(true);
+      const videoRef = useRef(null);
+      const canvasRef = useRef(null);
+      const departments = [...new Set(mockEquipment.map(eq => eq.dept))];
+      const filteredEquipment = selectedDept ? mockEquipment.filter(eq => eq.dept === selectedDept) : [];
+
+      useEffect(() => {
+        let animationFrameId;
+        let stream = null;
+        const startCamera = async () => {
+          try {
+            stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+            if (videoRef.current) {
+              videoRef.current.srcObject = stream;
+              videoRef.current.setAttribute("playsinline", true);
+              videoRef.current.play();
+              requestAnimationFrame(tick);
+            }
+          } catch (err) { setHasCamera(false); }
+        };
+
+        const tick = () => {
+          const video = videoRef.current;
+          const canvas = canvasRef.current;
+          if (video && video.readyState === video.HAVE_ENOUGH_DATA && window.jsQR && canvas) {
+            canvas.height = video.videoHeight; canvas.width = video.videoWidth;
+            const ctx = canvas.getContext("2d");
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const code = window.jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: "dontInvert" });
+            if (code && code.data) {
+              onScan(code.data.trim().toUpperCase());
+              return; 
+            }
+          }
+          animationFrameId = requestAnimationFrame(tick);
+        };
+        
+        if (!window.jsQR) {
+          const script = document.createElement('script');
+          script.src = "https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js";
+          script.onload = startCamera;
+          document.body.appendChild(script);
+        } else {
+          startCamera();
+        }
+
+        return () => {
+          if (animationFrameId) cancelAnimationFrame(animationFrameId);
+          if (stream) stream.getTracks().forEach(track => track.stop());
+        };
+      }, [onScan]);
+
+      return (
+        <div className="flex flex-col items-center h-full w-full animate-in fade-in">
+          <div className="w-full bg-black rounded-2xl overflow-hidden shadow-2xl relative" style={{ height: '350px' }}>
+            {hasCamera ? (
+              <>
+                <video ref={videoRef} className="absolute inset-0 w-full h-full object-cover" />
+                <canvas ref={canvasRef} className="hidden" />
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40">
+                  <div className="w-56 h-56 border-2 border-green-500 rounded-2xl relative shadow-[0_0_0_9999px_rgba(0,0,0,0.4)]">
+                    <div className="absolute w-full h-1 bg-green-500 top-0 animate-[scan_2s_ease-in-out_infinite]" />
+                  </div>
+                  <p className="text-white mt-6 font-medium text-sm">請將 QR Code 對準框內</p>
+                </div>
+              </>
+            ) : (
+              <div className="absolute inset-0 bg-gray-900 flex flex-col items-center justify-center p-6">
+                <Icon name="Camera" size={48} className="text-gray-600 mb-4" />
+                <p className="text-gray-400 font-medium">無法啟用相機 (請確認權限或是否為HTTPS)</p>
+              </div>
+            )}
+          </div>
+          <style>{`@keyframes scan { 0% { top: 0; opacity: 0; } 10% { opacity: 1; } 90% { opacity: 1; } 100% { top: 100%; opacity: 0; } }`}</style>
+          
+          <div className="mt-6 w-full bg-white p-5 rounded-2xl shadow-sm border border-gray-200">
+            <h3 className="text-sm font-semibold text-gray-500 mb-3">無相機時手動選擇</h3>
+            <select className="w-full mb-3 border border-gray-300 rounded-xl p-2 outline-none focus:border-red-400" value={selectedDept} onChange={(e) => setSelectedDept(e.target.value)}>
+              <option value="">-- 選擇責任單位 --</option>
+              {departments.map(d => <option key={d} value={d}>{d}</option>)}
+            </select>
+            <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto">
+              {filteredEquipment.map(eq => (
+                <button key={eq.id} onClick={() => onScan(eq.id)} className="px-3 py-2 bg-gray-100 border rounded-lg text-sm hover:bg-red-50 hover:text-red-700">{eq.id} ({eq.type})</button>
+              ))}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // --- InspectionForm ---
+    function InspectionForm({ equipment, onSubmit, onCancel }) {
+      const isExtinguisher = equipment.type === '滅火器';
+      const questions = isExtinguisher ? EXTINGUISHER_QUESTIONS : HYDRANT_QUESTIONS;
+      
+      const [tempType, setTempType] = useState('');
+      const needsTypeSelection = isExtinguisher && !equipment.extinguisherType;
+      const finalType = equipment.extinguisherType || tempType;
+      const needsWeight = isExtinguisher && finalType !== '乾粉' && finalType !== '';
+
+      const [answers, setAnswers] = useState(questions.reduce((acc, q) => ({ ...acc, [q.id]: 'pending' }), {}));
+      const [remark, setRemark] = useState('');
+      const [inspectorName, setInspectorName] = useState('');
+      const [managerName, setManagerName] = useState('');
+      const [weight, setWeight] = useState('');
+
+      const hasAbnormal = Object.values(answers).includes('abnormal');
+      const isComplete = Object.values(answers).every(v => v !== 'pending') && inspectorName && managerName && (!needsWeight || weight !== '') && (!needsTypeSelection || tempType !== '');
+
+      const handleSubmit = () => {
+        onSubmit({ 
+          equipmentId: equipment.id, answers, weight: needsWeight ? weight : undefined, 
+          hasAbnormal, remark, inspectorName, managerName 
+        }, needsTypeSelection ? tempType : null);
+      };
+
+      return (
+        <div className="space-y-4 animate-in slide-in-from-right-4">
+          <div className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-red-600">
+            <span className="text-xs font-bold bg-gray-200 text-gray-700 px-2 py-1 rounded mb-2 inline-block">{equipment.factory} / {equipment.dept}</span>
+            <h2 className="text-xl font-bold">{equipment.id} {equipment.type} {equipment.extinguisherType ? `(${equipment.extinguisherType})` : ''}</h2>
+            <p className="text-sm text-gray-600">{equipment.location}</p>
+          </div>
+
+          {needsTypeSelection && (
+            <div className="bg-yellow-50 p-4 rounded-xl border-2 border-yellow-300 shadow-sm animate-in fade-in">
+              <p className="text-sm font-bold text-yellow-800 mb-3 flex items-center gap-1"><Icon name="AlertTriangle" size={18}/> 系統發現未設定種類，請於現場確認並選擇：</p>
+              <div className="flex gap-2">
+                {['乾粉', 'CO2', '泡沫'].map(t => (
+                  <button key={t} onClick={()=>setTempType(t)} className={`flex-1 py-2.5 rounded-lg border-2 font-bold transition-colors ${tempType === t ? 'bg-yellow-500 border-yellow-600 text-white shadow-inner' : 'bg-white border-yellow-200 text-yellow-700 hover:bg-yellow-100'}`}>{t}</button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="bg-white p-4 rounded-xl shadow-sm">
+            <div className="flex justify-between items-center mb-4 border-b pb-2">
+              <h3 className="font-bold text-lg">檢查項目</h3>
+              <button onClick={() => setAnswers(questions.reduce((acc, q) => ({ ...acc, [q.id]: 'normal' }), {}))} className="text-sm bg-green-100 text-green-700 px-3 py-1 rounded-lg font-semibold hover:bg-green-200">一鍵全正常</button>
+            </div>
+            <div className="space-y-4">
+              {questions.map((q, idx) => (
+                <div key={q.id} className="p-3 bg-gray-50 rounded-xl border border-gray-100">
+                  <p className="font-medium text-sm mb-3 whitespace-pre-line"><span className="text-red-600 font-bold">{idx + 1}.</span> {q.text}</p>
+                  {needsWeight && q.id === 'q1' && (
+                    <div className="flex items-center gap-3 mb-3 bg-blue-50 p-3 rounded-lg border border-blue-100 animate-in fade-in">
+                      <span className="text-sm font-bold text-blue-800">實際重量:</span>
+                      <input type="text" inputMode="decimal" value={weight} onChange={e=> {if (/^\d{0,2}(\.\d{0,1})?$/.test(e.target.value)) setWeight(e.target.value)}} placeholder="00.0" className="border-2 border-blue-300 rounded-lg p-1.5 w-24 text-center font-bold text-blue-900 outline-none focus:border-blue-600" /> kg
+                    </div>
+                  )}
+                  <div className="flex gap-3">
+                    <button onClick={() => setAnswers(p => ({ ...p, [q.id]: 'normal'}))} className={`flex-1 py-2.5 border-2 rounded-lg font-semibold flex justify-center items-center gap-2 ${answers[q.id] === 'normal' ? 'bg-green-50 border-green-500 text-green-700' : 'bg-white hover:bg-gray-100'}`}><Icon name="CheckCircle" size={18}/>正常</button>
+                    <button onClick={() => setAnswers(p => ({ ...p, [q.id]: 'abnormal'}))} className={`flex-1 py-2.5 border-2 rounded-lg font-semibold flex justify-center items-center gap-2 ${answers[q.id] === 'abnormal' ? 'bg-red-50 border-red-500 text-red-700' : 'bg-white hover:bg-gray-100'}`}><Icon name="XCircle" size={18}/>異常</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+          {hasAbnormal && <div className="bg-red-50 p-4 rounded-xl border border-red-200 animate-in fade-in"><textarea className="w-full p-3 rounded-xl border outline-none focus:ring-2 focus:ring-red-200" rows="3" placeholder="備註異常狀況..." onChange={e=>setRemark(e.target.value)}></textarea></div>}
+          <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+            <h3 className="font-bold mb-3 flex items-center gap-2"><Icon name="PenTool" size={18}/>點檢簽核</h3>
+            <input type="text" className="w-full border-b p-2 bg-gray-50 mb-3 outline-none focus:border-red-500" placeholder="檢查人姓名" onChange={e=>setInspectorName(e.target.value)}/>
+            <input type="text" className="w-full border-b p-2 bg-gray-50 outline-none focus:border-red-500" placeholder="火源責任者(主管)" onChange={e=>setManagerName(e.target.value)}/>
+          </div>
+          <div className="flex gap-3 pt-2">
+            <button onClick={onCancel} className="w-1/3 py-3 bg-gray-200 rounded-xl font-bold hover:bg-gray-300">取消</button>
+            <button onClick={handleSubmit} disabled={!isComplete} className={`w-2/3 py-3 rounded-xl font-bold text-white ${isComplete ? 'bg-red-600 hover:bg-red-700 shadow-md' : 'bg-gray-300'}`}>送出</button>
+          </div>
+        </div>
+      );
+    }
+
+    // --- EquipmentList ---
+    function EquipmentList({ equipmentList, inspections, currentYear, currentMonth, onDetail }) {
+      const [filter, setFilter] = useState('all'); 
+      const [deptFilter, setDeptFilter] = useState('all'); 
+      const [typeFilter, setTypeFilter] = useState('all'); 
+      const [searchTerm, setSearchTerm] = useState('');
+      const [showScannerModal, setShowScannerModal] = useState(false);
+      const [selectedQrEq, setSelectedQrEq] = useState(null); 
+      const departments = [...new Set(equipmentList.map(eq => eq.dept))];
+
+      const filteredList = equipmentList.filter(eq => {
+        const isDone = inspections.some(i => i.equipmentId === eq.id && i.year === currentYear && i.month === currentMonth);
+        if (filter === 'done' && !isDone) return false;
+        if (filter === 'pending' && isDone) return false;
+        if (deptFilter !== 'all' && eq.dept !== deptFilter) return false;
+        if (typeFilter !== 'all' && eq.type !== typeFilter) return false;
+        if (searchTerm && !eq.id.toLowerCase().includes(searchTerm.toLowerCase())) return false;
+        return true;
+      });
+
+      const downloadQrCode = async (id) => {
+        try {
+          const response = await fetch(`https://api.qrserver.com/v1/create-qr-code/?size=500x500&data=${id}`);
+          const blob = await response.blob();
+          const url = window.URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `設備標籤_${id}.png`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          window.URL.revokeObjectURL(url);
+        } catch (error) {
+          alert("下載失敗，請直接長按圖片儲存或右鍵另存圖片");
+        }
+      };
+
+      const printQrCode = (eq) => {
+        const win = window.open('', '_blank');
+        win.document.write(`
+          <html>
+            <head>
+              <title>列印標籤 - ${eq.id}</title>
+              <style>
+                body { display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; font-family: sans-serif; background: #fff; }
+                .label { border: 6px solid #000; padding: 40px; border-radius: 20px; text-align: center; }
+                h1 { font-size: 64px; margin: 0 0 10px 0; letter-spacing: 2px; }
+                p { font-size: 24px; color: #333; margin: 0 0 20px 0; font-weight: bold; }
+                img { width: 300px; height: 300px; display: block; margin: 0 auto; }
+                .footer { margin-top: 20px; font-size: 22px; font-weight: bold; }
+                .dept { margin-top: 8px; font-size: 18px; color: #555; }
+              </style>
+            </head>
+            <body>
+              <div class="label">
+                <h1>${eq.id}</h1>
+                <p>${eq.type}</p>
+                <img src="https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${eq.id}" onload="window.print(); window.close();" />
+                <div class="footer">${eq.factory} - ${eq.floor}</div>
+                <div class="dept">${eq.dept}</div>
+              </div>
+            </body>
+          </html>
+        `);
+        win.document.close();
+      };
+
+      return (
+        <div className="space-y-4 animate-in fade-in">
+          {showScannerModal && (
+            <div className="fixed inset-0 z-[100] bg-gray-50 flex flex-col animate-in slide-in-from-bottom-4">
+              <header className="bg-gray-900 text-white p-4 flex justify-between items-center"><h2 className="font-bold flex items-center gap-2"><Icon name="QrCode" size={20}/> 掃碼搜尋</h2><button onClick={()=>setShowScannerModal(false)}><Icon name="XCircle" size={24}/></button></header>
+              <div className="flex-1 overflow-y-auto p-4"><Scanner onScan={(id) => {setSearchTerm(id); setShowScannerModal(false);}} mockEquipment={equipmentList} /></div>
+            </div>
+          )}
+
+          {selectedQrEq && (
+            <div className="fixed inset-0 z-[200] bg-black/60 flex items-center justify-center p-4 backdrop-blur-sm" onClick={() => setSelectedQrEq(null)}>
+              <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden animate-in zoom-in-95" onClick={e => e.stopPropagation()}>
+                <header className="bg-gray-900 text-white p-4 flex justify-between items-center">
+                  <h2 className="font-bold flex items-center gap-2"><Icon name="QrCode" size={20}/> 設備專屬 QR 標籤</h2>
+                  <button onClick={() => setSelectedQrEq(null)}><Icon name="XCircle" size={24}/></button>
+                </header>
+                <div className="p-8 bg-white flex flex-col items-center text-center">
+                  <div className="border-4 border-black p-6 rounded-xl inline-block w-full">
+                    <h3 className="text-3xl font-black mb-1 tracking-wider">{selectedQrEq.id}</h3>
+                    <p className="text-sm font-bold text-gray-600 mb-4">{selectedQrEq.type}</p>
+                    <img 
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${selectedQrEq.id}`} 
+                      alt={selectedQrEq.id} 
+                      className="w-48 h-48 mx-auto shadow-sm"
+                      crossOrigin="anonymous"
+                    />
+                    <div className="mt-5 text-sm font-bold text-gray-800">{selectedQrEq.factory} - {selectedQrEq.floor}</div>
+                    <div className="text-xs font-bold text-gray-500 mt-1">{selectedQrEq.dept}</div>
+                  </div>
+                </div>
+                <div className="p-4 bg-gray-50 border-t flex gap-3">
+                  <button onClick={() => downloadQrCode(selectedQrEq.id)} className="flex-1 py-3 bg-green-600 text-white rounded-xl font-bold flex justify-center items-center gap-2 hover:bg-green-700 shadow-md transition-colors">
+                    <Icon name="Download" size={18}/> 下載圖片
+                  </button>
+                  <button onClick={() => printQrCode(selectedQrEq)} className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold flex justify-center items-center gap-2 hover:bg-blue-700 shadow-md transition-colors">
+                    <Icon name="Printer" size={18}/> 產生列印
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="bg-white p-4 rounded-xl shadow-sm sticky top-16 z-0 border border-gray-100">
+            <div className="flex gap-2 mb-3">
+              <div className="relative flex-1">
+                <input type="text" placeholder="搜尋編號..." className="w-full bg-gray-100 rounded-xl py-2 pl-10 pr-10 outline-none text-sm focus:ring-2 focus:ring-red-200" value={searchTerm} onChange={e=>setSearchTerm(e.target.value)}/>
+                <Icon name="Search" size={18} className="absolute left-3 top-2.5 text-gray-400" />
+                {searchTerm && <button onClick={() => setSearchTerm('')} className="absolute right-3 top-2.5 text-gray-400"><Icon name="XCircle" size={18}/></button>}
+              </div>
+              <button onClick={()=>setShowScannerModal(true)} className="bg-gray-800 text-white px-3 py-2 rounded-xl hover:bg-gray-700 shadow"><Icon name="QrCode" size={20} /></button>
+            </div>
+            <div className="flex gap-2 mb-3">
+              <select 
+                className="flex-1 w-1/2 bg-gray-50 border border-gray-300 rounded-xl py-2 px-3 text-sm outline-none font-medium focus:border-red-500 focus:ring-2 focus:ring-red-100"
+                value={typeFilter}
+                onChange={e => setTypeFilter(e.target.value)}
+              >
+                <option value="all">🔍 所有設備</option>
+                <option value="滅火器">滅火器</option>
+                <option value="消防栓">消防栓</option>
+              </select>
+              <select 
+                className="flex-1 w-1/2 bg-gray-50 border border-gray-300 rounded-xl py-2 px-3 text-sm outline-none font-medium focus:border-red-500 focus:ring-2 focus:ring-red-100"
+                value={deptFilter}
+                onChange={e => setDeptFilter(e.target.value)}
+              >
+                <option value="all">🔍 所有單位</option>
+                {departments.map(d => <option key={d} value={d}>{d}</option>)}
+              </select>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={()=>setFilter('all')} className={`flex-1 py-1.5 text-sm rounded-lg font-medium transition ${filter==='all'?'bg-gray-800 text-white':'bg-gray-100 hover:bg-gray-200'}`}>全部</button>
+              <button onClick={()=>setFilter('pending')} className={`flex-1 py-1.5 text-sm rounded-lg font-medium transition ${filter==='pending'?'bg-gray-800 text-white':'bg-gray-100 hover:bg-gray-200'}`}>未點檢</button>
+              <button onClick={()=>setFilter('done')} className={`flex-1 py-1.5 text-sm rounded-lg font-medium transition ${filter==='done'?'bg-gray-800 text-white':'bg-gray-100 hover:bg-gray-200'}`}>已點檢</button>
+            </div>
+          </div>
+          <div className="space-y-3 pb-8">
+            {filteredList.map(eq => {
+              const isDone = inspections.some(i => i.equipmentId === eq.id && i.year === currentYear && i.month === currentMonth);
+              return (
+                <div key={eq.id} onClick={()=>onDetail(eq.id)} className="bg-white p-4 rounded-xl flex items-center justify-between border cursor-pointer hover:border-red-300">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1"><span className="font-bold">{eq.id}</span>
+                      <span className={`text-xs px-2 rounded-full ${isDone?'bg-green-100 text-green-700':'bg-gray-100 text-gray-600'}`}>{isDone?'已點檢':'未點檢'}</span>
+                    </div>
+                    <div className="text-sm font-medium text-gray-700">
+                      {eq.type}{eq.extinguisherType ? <span className="ml-1 text-xs text-gray-500 font-normal">({eq.extinguisherType})</span> : ''} - {eq.factory} ({eq.floor})
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1">{eq.location} - <span className="font-semibold text-gray-700">{eq.dept}</span></div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); setSelectedQrEq(eq); }} 
+                      className="p-2.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 hover:text-blue-700 transition-colors shadow-sm" 
+                      title="顯示專屬 QR Code"
+                    >
+                      <Icon name="QrCode" size={20} />
+                    </button>
+                    <Icon name="ChevronRight" size={20} className="text-gray-300" />
+                  </div>
+                </div>
+              );
+            })}
+            {filteredList.length === 0 && <div className="text-center py-10 text-gray-400 text-sm">查無符合條件的設備</div>}
+          </div>
+        </div>
+      );
+    }
+
+    // --- 可共用的點檢卡 UI 核心元件 ---
+    function InspectionCardUI({ equipment, inspections, reportYear, reportHalf }) {
+      const isExtinguisher = equipment.type === '滅火器';
+      const questions = isExtinguisher ? EXTINGUISHER_QUESTIONS : HYDRANT_QUESTIONS;
+      const formNo = isExtinguisher ? '04H0001' : '04H0002';
+      const months = reportHalf === 'H1' ? [1,2,3,4,5,6] : [7,8,9,10,11,12];
+      const eqInspections = inspections.filter(i => i.equipmentId === equipment.id && i.year === reportYear);
+
+      return (
+        <>
+          <h2 className="text-center text-xl font-bold mb-4 print:mb-2">{isExtinguisher ? '滅火器點檢卡' : '消防栓點檢卡'}</h2>
+          <div className="grid grid-cols-2 text-sm font-bold mb-4 print:mb-2">
+            <div>編號：<span className="text-red-700 px-2 border-b border-gray-400 font-black">{equipment.id}</span></div>
+            <div className="text-right">管理單位：<span className="px-2 border-b border-gray-400">{equipment.dept}</span></div>
+            {isExtinguisher && (
+              <div className="col-span-2 mt-1 flex items-center flex-wrap">
+                <span className="mr-1">滅火器種類：</span>
+                <span className="inline-flex items-center mx-2"><span className="w-4 h-4 border border-gray-400 flex items-center justify-center mr-1 text-[10px] font-bold bg-gray-100 leading-none">{equipment.extinguisherType === 'CO2' ? 'V' : ''}</span>CO2</span>
+                <span className="inline-flex items-center mx-2"><span className="w-4 h-4 border border-gray-400 flex items-center justify-center mr-1 text-[10px] font-bold bg-gray-100 leading-none">{equipment.extinguisherType === '泡沫' ? 'V' : ''}</span>泡沫</span>
+                <span className="inline-flex items-center mx-2"><span className="w-4 h-4 border border-gray-400 flex items-center justify-center mr-1 text-[10px] font-bold bg-gray-100 leading-none">{equipment.extinguisherType === '乾粉' ? 'V' : ''}</span>乾粉</span>
+              </div>
+            )}
+            <div className="mt-1">{reportYear}年度 {reportHalf === 'H1' ? '上半年' : '下半年'}</div>
+            <div className="text-right mt-1">數量：<span className="border-b border-gray-400 px-2">1</span> 支</div>
+          </div>
+
+          <div className="w-full border-2 border-black">
+            <table className="w-full text-[10px] sm:text-xs text-center border-collapse table-fixed print:min-w-full">
+              <thead>
+                <tr className="bg-gray-100">
+                  <th className="border border-black p-1 w-[30%] sm:w-[35%]" rowSpan={2}>檢查內容</th>
+                  {months.map(m => <th key={m} className="border border-black p-0.5" colSpan={2}>{m}月</th>)}
+                </tr>
+                <tr className="bg-gray-100">
+                  {months.map(m => <React.Fragment key={m}><th className="border border-black p-0 tracking-tighter">正常</th><th className="border border-black p-0 tracking-tighter">異常</th></React.Fragment>)}
+                </tr>
+              </thead>
+              <tbody>
+                {questions.map(q => (
+                  <tr key={q.id}>
+                    <td className="border border-black p-1 text-left align-middle leading-tight font-medium whitespace-pre-line break-words">{q.text}</td>
+                    {months.map(m => {
+                      const rec = eqInspections.find(i => i.month === m);
+                      const isN = rec && rec.answers[q.id] === 'normal';
+                      const isA = rec && rec.answers[q.id] === 'abnormal';
+                      const hasWeight = isExtinguisher && q.id === 'q1' && rec?.weight;
+                      return (
+                        <React.Fragment key={m}>
+                          <td className="border border-black p-0 sm:p-1 text-green-600 font-bold align-middle">
+                            {isN && <div className="flex flex-col items-center justify-center leading-none"><span>V</span>{hasWeight && <span className="text-[8px] sm:text-[10px] text-gray-700 font-normal mt-0.5 scale-90 sm:scale-100">{rec.weight}</span>}</div>}
+                          </td>
+                          <td className="border border-black p-0 sm:p-1 text-red-600 font-bold align-middle">
+                            {isA && <div className="flex flex-col items-center justify-center leading-none"><span>V</span>{hasWeight && <span className="text-[8px] sm:text-[10px] text-gray-700 font-normal mt-0.5 scale-90 sm:scale-100">{rec.weight}</span>}</div>}
+                          </td>
+                        </React.Fragment>
+                      );
+                    })}
+                  </tr>
+                ))}
+                <tr>
+                  <td className="border border-black p-1 text-left bg-gray-50 font-bold whitespace-nowrap">火源責任者姓名:</td>
+                  {months.map(m => <td key={m} colSpan={2} className="border border-black p-0.5 text-blue-800 tracking-tighter break-all">{eqInspections.find(i=>i.month===m)?.managerName || ''}</td>)}
+                </tr>
+                <tr>
+                  <td className="border border-black p-1 text-left bg-gray-50 font-bold whitespace-nowrap">檢查人姓名:</td>
+                  {months.map(m => <td key={m} colSpan={2} className="border border-black p-0.5 text-blue-800 tracking-tighter break-all">{eqInspections.find(i=>i.month===m)?.inspectorName || ''}</td>)}
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div className="text-xs text-gray-600 space-y-2 mt-4">
+            <p>備註:火源責任者由管理幹部擔當(組級以上人員)，檢查人員為現場單位指派之人員。</p>
+            <div className="flex justify-between font-bold">
+              <span>FORM NO : {formNo}</span>
+              <span>REV-E</span>
+            </div>
+          </div>
+        </>
+      );
+    }
+
+    // --- 單筆 InspectionReport ---
+    function InspectionReport({ equipment, inspections, onBack }) {
+      const [reportYear, setReportYear] = useState(new Date().getFullYear());
+      const [reportHalf, setReportHalf] = useState(new Date().getMonth() + 1 <= 6 ? 'H1' : 'H2');
+      const [showPrintModal, setShowPrintModal] = useState(false);
+
+      return (
+        <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
+          {showPrintModal && (
+            <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4">
+              <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+                <h3 className="text-lg font-bold text-gray-800 mb-3"><Icon name="Printer" size={22} className="text-blue-600 inline mr-2"/>列印提示</h3>
+                <p className="text-gray-600 text-sm mb-5">若瀏覽器阻擋自動列印，請使用鍵盤：<br/><strong className="text-red-600">Ctrl + P</strong> 或 <strong className="text-red-600">Cmd + P</strong></p>
+                <div className="flex gap-3">
+                  <button onClick={() => setShowPrintModal(false)} className="flex-1 py-2 bg-gray-200 rounded font-bold">關閉</button>
+                  <button onClick={() => { setShowPrintModal(false); setTimeout(() => window.print(), 100); }} className="flex-1 py-2 bg-blue-600 text-white rounded font-bold">強制列印</button>
+                </div>
+              </div>
+            </div>
+          )}
+          <div className="flex justify-between print:hidden">
+            <button onClick={onBack} className="bg-white px-3 py-2 border rounded-lg flex items-center gap-2 hover:bg-gray-50"><Icon name="ArrowLeft" size={18}/>返回</button>
+            <button onClick={() => setShowPrintModal(true)} className="bg-blue-600 text-white px-3 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700 shadow"><Icon name="Printer" size={18}/>預覽列印</button>
+          </div>
+          
+          <div className="bg-white p-4 rounded-xl border print:border-none print:p-0 print:w-full">
+            <div className="flex gap-2 mb-4 print:hidden">
+              <select className="border p-1 text-sm rounded outline-none focus:border-blue-500" value={reportYear} onChange={e=>setReportYear(Number(e.target.value))}>
+                <option value={2026}>2026 年度</option><option value={2025}>2025 年度</option><option value={2024}>2024 年度</option>
+              </select>
+              <select className="border p-1 text-sm rounded outline-none focus:border-blue-500" value={reportHalf} onChange={e=>setReportHalf(e.target.value)}>
+                <option value="H1">上半年</option><option value="H2">下半年</option>
+              </select>
+            </div>
+
+            <InspectionCardUI equipment={equipment} inspections={inspections} reportYear={reportYear} reportHalf={reportHalf} />
+          </div>
+        </div>
+      );
+    }
+
+    // --- BatchPrintView 批次列印與 PDF 匯出檢視 ---
+    function BatchPrintView({ equipmentList, inspections, onBack }) {
+      const [reportYear, setReportYear] = useState(new Date().getFullYear());
+      const [reportHalf, setReportHalf] = useState(new Date().getMonth() + 1 <= 6 ? 'H1' : 'H2');
+      const [typeFilter, setTypeFilter] = useState('all');
+      const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+      const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+
+      const filteredEquipmentList = equipmentList.filter(eq => {
+        if (typeFilter !== 'all' && eq.type !== typeFilter) return false;
+        return true;
+      });
+
+      useEffect(() => {
+        if (!window.html2pdf) {
+          const script = document.createElement('script');
+          script.src = "https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js";
+          document.body.appendChild(script);
+        }
+      }, []);
+
+      const handleOpenPreview = () => {
+        setIsPreviewOpen(true);
+        window.scrollTo(0, 0);
+      };
+
+      const handleExportPDF = () => {
+        if (!window.html2pdf) {
+          alert("PDF 轉換套件尚未載入完成，請稍候幾秒再試！");
+          return;
+        }
+        
+        setIsGeneratingPDF(true);
+        const element = document.getElementById('batch-print-content');
+        
+        const opt = {
+          margin:       5,
+          filename:     `全廠區${typeFilter === 'all' ? '' : typeFilter}點檢卡_${reportYear}年${reportHalf === 'H1' ? '上半年' : '下半年'}.pdf`,
+          image:        { type: 'jpeg', quality: 0.98 },
+          html2canvas:  { scale: 2, useCORS: true },
+          jsPDF:        { unit: 'mm', format: 'a4', orientation: 'landscape' },
+          pagebreak:    { mode: ['css', 'legacy'] }
+        };
+
+        setTimeout(() => {
+          window.html2pdf().set(opt).from(element).save().then(() => {
+            setIsGeneratingPDF(false);
+          }).catch(err => {
+            console.error("PDF 匯出失敗:", err);
+            setIsGeneratingPDF(false);
+            alert("PDF 匯出時發生錯誤，請嘗試使用「直接列印」並選擇「另存為 PDF」。");
+          });
+        }, 500);
+      };
+
+      return (
+        <div className="space-y-4 animate-in fade-in">
+          <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
+            <h2 className="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2"><Icon name="Printer" size={22} className="text-blue-600"/> 全廠區點檢卡批次處理</h2>
+            <p className="text-sm text-gray-500 mb-4">選擇年度區間與設備種類後，系統會為廠區 {filteredEquipmentList.length} 筆設備產生專屬點檢卡。您可以全螢幕預覽，並選擇直接列印或匯出成 PDF 檔歸檔。</p>
+            
+            <div className="grid grid-cols-3 gap-2 mb-5">
+              <select className="border-2 border-gray-300 rounded-xl p-2.5 text-sm font-bold outline-none focus:border-blue-500" value={reportYear} onChange={e=>setReportYear(Number(e.target.value))}>
+                <option value={2026}>2026 年度</option>
+                <option value={2025}>2025 年度</option>
+                <option value={2024}>2024 年度</option>
+              </select>
+              <select className="border-2 border-gray-300 rounded-xl p-2.5 text-sm font-bold outline-none focus:border-blue-500" value={reportHalf} onChange={e=>setReportHalf(e.target.value)}>
+                <option value="H1">上半年 (1-6月)</option>
+                <option value="H2">下半年 (7-12月)</option>
+              </select>
+              <select className="border-2 border-gray-300 rounded-xl p-2.5 text-sm font-bold outline-none focus:border-blue-500" value={typeFilter} onChange={e=>setTypeFilter(e.target.value)}>
+                <option value="all">所有設備</option>
+                <option value="滅火器">僅滅火器</option>
+                <option value="消防栓">僅消防栓</option>
+              </select>
+            </div>
+            
+            <div className="flex gap-3">
+              <button onClick={onBack} className="w-1/3 py-3 bg-gray-100 rounded-xl font-bold hover:bg-gray-200 text-gray-700 flex justify-center items-center gap-2 transition-colors"><Icon name="ArrowLeft" size={18}/> 返回</button>
+              <button onClick={handleOpenPreview} disabled={filteredEquipmentList.length === 0} className={`w-2/3 py-3 rounded-xl font-bold flex justify-center items-center gap-2 transition-colors ${filteredEquipmentList.length > 0 ? 'bg-blue-600 text-white shadow-md hover:bg-blue-700' : 'bg-gray-200 text-gray-400'}`}>
+                <Icon name="FileText" size={20}/> 產生批次預覽 ({filteredEquipmentList.length} 張)
+              </button>
+            </div>
+          </div>
+
+          {isPreviewOpen && (
+            <div className="fixed inset-0 z-[300] bg-gray-200 flex flex-col animate-in fade-in zoom-in-95">
+              <header className="bg-gray-900 text-white p-3 sm:p-4 flex flex-wrap justify-between items-center shadow-lg print:hidden z-10 sticky top-0 gap-2">
+                <div className="flex items-center gap-2 sm:gap-4">
+                  <button onClick={() => setIsPreviewOpen(false)} className="bg-gray-700 hover:bg-gray-600 p-2 rounded-lg transition-colors flex items-center gap-1">
+                    <Icon name="XCircle" size={20} /> <span className="hidden sm:inline text-sm font-bold">關閉預覽</span>
+                  </button>
+                  <span className="font-bold text-sm sm:text-base hidden md:inline">共 {filteredEquipmentList.length} 張點檢卡預覽</span>
+                </div>
+                
+                <div className="flex gap-2 sm:gap-3">
+                  <button onClick={handleExportPDF} disabled={isGeneratingPDF} className={`px-3 py-2 rounded-lg font-bold flex items-center gap-1 sm:gap-2 text-sm transition-colors ${isGeneratingPDF ? 'bg-orange-400 text-white cursor-not-allowed' : 'bg-orange-500 hover:bg-orange-600 text-white shadow-md'}`}>
+                    <Icon name="Download" size={18} />{isGeneratingPDF ? 'PDF 打包中...' : '匯出 PDF 檔'}
+                  </button>
+                  <button onClick={() => window.print()} className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold flex items-center gap-1 sm:gap-2 shadow-md text-sm transition-colors">
+                    <Icon name="Printer" size={18} />直接列印
+                  </button>
+                </div>
+              </header>
+
+              <div className="flex-1 overflow-y-auto p-4 sm:p-8" id="batch-print-content">
+                <div className="max-w-4xl mx-auto space-y-8 print:space-y-0 print:m-0 print:p-0">
+                  {filteredEquipmentList.map((eq, idx) => (
+                    <div key={eq.id} className="bg-white p-6 sm:p-10 rounded-lg shadow-xl print:shadow-none print:p-0 print:m-0 print:rounded-none relative" style={{ pageBreakAfter: 'always', breakAfter: 'page' }}>
+                      <div className="absolute top-2 right-2 text-gray-300 text-xs font-mono print:hidden">Page {idx + 1} / {filteredEquipmentList.length}</div>
+                      <InspectionCardUI equipment={eq} inspections={inspections} reportYear={reportYear} reportHalf={reportHalf} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
