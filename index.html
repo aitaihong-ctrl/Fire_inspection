@@ -31,6 +31,25 @@
       .print\:overflow-visible { overflow: visible !important; }
       .print\:min-w-full { min-width: 100% !important; }
     }
+    
+    /* AI Shimmer Effect */
+    @keyframes shimmer {
+      0% { background-position: -200% 0; }
+      100% { background-position: 200% 0; }
+    }
+    .ai-shimmer {
+      background: linear-gradient(90deg, #8b5cf6 25%, #d946ef 50%, #8b5cf6 75%);
+      background-size: 200% 100%;
+      animation: shimmer 2s infinite linear;
+      color: transparent;
+      -webkit-background-clip: text;
+      background-clip: text;
+    }
+    .ai-bg-shimmer {
+      background: linear-gradient(90deg, #f3e8ff 25%, #fae8ff 50%, #f3e8ff 75%);
+      background-size: 200% 100%;
+      animation: shimmer 3s infinite linear;
+    }
   </style>
 </head>
 <body class="bg-gray-50">
@@ -38,6 +57,39 @@
 
   <script type="text/babel">
     const { useState, useEffect, useRef } = React;
+
+    // --- Gemini API 整合 ---
+    const apiKey = ""; // The execution environment provides the key at runtime
+
+    const callGeminiAPI = async (prompt) => {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+      const payload = {
+        contents: [{ parts: [{ text: prompt }] }],
+        systemInstruction: { parts: [{ text: "你是一位專業的廠區工安與消防設備顧問。請用繁體中文回答，語氣專業、簡明扼要。不要使用過度浮誇的詞彙，專注於事實與可執行的建議。" }] }
+      };
+
+      const maxRetries = 5;
+      const delays = [1000, 2000, 4000, 8000, 16000];
+
+      for (let i = 0; i < maxRetries; i++) {
+        try {
+          const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+          const data = await response.json();
+          return data.candidates?.[0]?.content?.parts?.[0]?.text || "無法產生內容";
+        } catch (error) {
+          if (i === maxRetries - 1) {
+            console.error("Gemini API Error:", error);
+            throw new Error("AI 服務暫時無法使用，請稍後再試。");
+          }
+          await new Promise(res => setTimeout(res, delays[i]));
+        }
+      }
+    };
 
     // --- 自訂圖示組件 ---
     const Icon = ({ name, size = 24, className = "" }) => {
@@ -72,6 +124,7 @@
         Users: <><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></>,
         Eye: <><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></>,
         EyeOff: <><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></>,
+        Sparkles: <><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/><path d="M4 17v2"/><path d="M5 18H3"/></>,
         FirefighterHose: <>
           <path d="M5 10a6 6 0 0 1 12 0" />
           <rect x="2" y="10" width="18" height="3" rx="1.5" />
@@ -89,7 +142,10 @@
     };
 
     // --- 預設模擬資料 ---
-    const mockEquipment = [];
+    const mockEquipment = [
+      { id: 'EXT-01', type: '滅火器', extinguisherType: '乾粉', quantity: 2, factory: '一廠', floor: '1F', zone: '大廳', location: '門口右側', dept: '總務部' },
+      { id: 'HYD-01', type: '消防栓', quantity: 1, factory: '一廠', floor: '1F', zone: '大廳', location: '電梯旁', dept: '總務部' }
+    ];
     const initialInspections = [];
     const mockUsers = [
       { account: 'admin', password: 'Admin@123', name: '系統管理員', role: 'admin', lastPasswordChange: new Date().toISOString() }
@@ -113,13 +169,11 @@
 
     const GOOGLE_SHEET_API_URL = "https://script.google.com/macros/s/AKfycbwqc1u56dt1tuQiM5FQ_rBkq8zcBXNR0ahd8RYGLarg8O89N98by77eU9k8Hbd6Rjl_/exec"; 
 
-    // 檢查密碼複雜度 (包含大小寫英文及數字，至少8碼)
     const isPasswordComplexEnough = (pwd) => {
       const regex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
       return regex.test(pwd);
     };
 
-    // 檢查密碼是否過期 (大於 90 天或為空)
     const isPasswordExpired = (dateString) => {
       if (!dateString) return true; 
       const lastChange = new Date(dateString);
@@ -151,7 +205,8 @@
       const totalItems = dbEquipment.length;
       const currentMonthInspections = inspections.filter(i => Number(i.year) === Number(currentYear) && Number(i.month) === Number(currentMonth));
       const completedItems = currentMonthInspections.length;
-      const abnormalItems = currentMonthInspections.filter(i => i.hasAbnormal).length;
+      const abnormalRecords = currentMonthInspections.filter(i => i.hasAbnormal);
+      const abnormalItems = abnormalRecords.length;
 
       useEffect(() => {
         const printStyle = document.createElement('style');
@@ -303,7 +358,7 @@
               <h1 className="text-xl font-bold tracking-wider">廠區消防設備點檢</h1>
             </div>
             <div className="flex items-center gap-3">
-              <div className="text-xs bg-red-800 px-3 py-1.5 rounded-full border border-red-600 flex items-center gap-1 font-medium">
+              <div className="text-xs bg-red-800 px-3 py-1.5 rounded-full border border-red-600 flex items-center gap-1 font-medium shadow-sm">
                 <Icon name="User" size={14} /> {currentUser.name}
               </div>
               <button onClick={() => setShowPasswordChange(true)} className="text-red-200 hover:text-white transition-colors" title="變更密碼"><Icon name="Key" size={20}/></button>
@@ -313,7 +368,7 @@
 
           <main className={`p-4 mx-auto print:max-w-none print:w-full print:p-0 print:m-0 ${activeTab === 'detail' || activeTab === 'batch-print' ? 'max-w-4xl' : 'max-w-lg'}`}>
             {activeTab === 'dashboard' && (
-              <Dashboard total={totalItems} completed={completedItems} abnormal={abnormalItems} currentYear={currentYear} currentMonth={currentMonth} onScan={() => navigateTo('scanner')} onViewList={() => navigateTo('list')} onBatchPrint={() => navigateTo('batch-print')} />
+              <Dashboard total={totalItems} completed={completedItems} abnormal={abnormalItems} abnormalRecords={abnormalRecords} equipmentList={dbEquipment} currentYear={currentYear} currentMonth={currentMonth} onScan={() => navigateTo('scanner')} onViewList={() => navigateTo('list')} onBatchPrint={() => navigateTo('batch-print')} />
             )}
             
             {activeTab === 'scanner' && <Scanner onScan={handleScan} mockEquipment={dbEquipment} />}
@@ -346,7 +401,6 @@
             <button onClick={() => navigateTo('records')} className={`flex flex-col items-center p-2 w-1/5 ${activeTab === 'records' ? 'text-red-700' : 'text-gray-400'}`}>
               <Icon name="History" size={24} /><span className="text-xs mt-1 font-medium">明細</span>
             </button>
-            {/* 僅管理員顯示管理後台按鈕 */}
             {currentUser.role === 'admin' ? (
               <button onClick={() => navigateTo('admin')} className={`flex flex-col items-center p-2 w-1/5 ${activeTab === 'admin' ? 'text-red-700' : 'text-gray-400'}`}>
                 <Icon name="Settings" size={24} /><span className="text-xs mt-1 font-medium">管理</span>
@@ -501,8 +555,37 @@
     }
 
     // --- Dashboard ---
-    function Dashboard({ total, completed, abnormal, currentYear, currentMonth, onScan, onViewList, onBatchPrint }) {
+    function Dashboard({ total, completed, abnormal, abnormalRecords, equipmentList, currentYear, currentMonth, onScan, onViewList, onBatchPrint }) {
       const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
+      const [aiSummary, setAiSummary] = useState('');
+      const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+
+      const handleGenerateAISummary = async () => {
+        setIsGeneratingAI(true);
+        try {
+          let prompt = `請以專業且簡潔的繁體中文，為 ${currentYear} 年 ${currentMonth} 月的「廠區消防設備點檢」撰寫一份 150 字以內的高階主管總結報告。\n`;
+          prompt += `本月數據：列管總設備數 ${total} 支，已完成巡檢 ${completed} 支，發現異常設備 ${abnormal} 支。\n`;
+          
+          if (abnormal > 0) {
+            prompt += `異常設備明細如下：\n`;
+            abnormalRecords.forEach(rec => {
+              const eq = equipmentList.find(e => e.id === rec.equipmentId);
+              prompt += `- 設備 [${rec.equipmentId}] (${eq?.type || '未知'}): ${rec.remark || '未填寫備註'}\n`;
+            });
+            prompt += `請總結這些安全隱患，並給出後續修繕與防範的具體建議。`;
+          } else {
+            prompt += `本月全廠區設備皆正常。請給予巡檢團隊鼓勵，並簡單提醒未來的日常維護注意事項。`;
+          }
+
+          const summaryText = await callGeminiAPI(prompt);
+          setAiSummary(summaryText);
+        } catch (error) {
+          alert(error.message);
+        } finally {
+          setIsGeneratingAI(false);
+        }
+      };
+
       return (
         <div className="space-y-6 animate-in fade-in">
           {total === 0 && (
@@ -511,6 +594,30 @@
               <p className="text-sm text-yellow-700 leading-relaxed">請聯絡管理員至後台「批次匯入 CSV」真實設備清單！</p>
             </div>
           )}
+
+          {/* AI 總結報告區塊 */}
+          <div className="bg-white rounded-2xl shadow-sm border border-purple-100 p-5 relative overflow-hidden">
+             <div className="flex items-center justify-between mb-3">
+               <h2 className="text-purple-800 font-bold flex items-center gap-2">
+                 <Icon name="Sparkles" size={20} className="text-purple-500" /> 
+                 AI 安檢總結報告
+               </h2>
+             </div>
+             
+             {aiSummary ? (
+               <div className="bg-purple-50 p-4 rounded-xl border border-purple-100 text-sm text-purple-900 leading-relaxed whitespace-pre-line relative">
+                 <div className="absolute top-2 right-2 opacity-10"><Icon name="Sparkles" size={40}/></div>
+                 {aiSummary}
+               </div>
+             ) : (
+               <p className="text-xs text-gray-500 mb-4">透過 Gemini 大語言模型，一鍵自動分析本月點檢數據與異常紀錄，產生高階主管專用的決策摘要。</p>
+             )}
+             
+             <button onClick={handleGenerateAISummary} disabled={isGeneratingAI} className={`w-full py-2.5 rounded-xl text-sm font-bold flex justify-center items-center gap-2 transition-colors mt-2 shadow-sm ${isGeneratingAI ? 'ai-bg-shimmer text-purple-700 cursor-wait' : 'bg-purple-100 text-purple-700 hover:bg-purple-200'}`}>
+               {isGeneratingAI ? '✨ AI 正在分析資料並生成報告...' : '✨ 產生本月安檢總結報告'}
+             </button>
+          </div>
+
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
             <h2 className="text-gray-500 text-sm font-semibold mb-4 flex items-center gap-2"><Icon name="Calendar" size={18} /> 當月點檢進度 ({currentYear}年 {currentMonth}月)</h2>
             <div className="flex items-center justify-between">
@@ -671,9 +778,29 @@
       const [managerName, setManagerName] = useState('');
       const [weight, setWeight] = useState('');
       const [quantity, setQuantity] = useState(equipment.quantity || 1);
+      
+      const [isGeneratingAI, setIsGeneratingAI] = useState(false);
 
       const hasAbnormal = Object.values(answers).includes('abnormal');
       const isComplete = Object.values(answers).every(v => v !== 'pending') && managerName && (!needsWeight || weight !== '') && (!needsTypeSelection || tempType !== '');
+
+      const handleAIAssist = async () => {
+        setIsGeneratingAI(true);
+        try {
+          const failedQuestions = questions.filter(q => answers[q.id] === 'abnormal').map(q => q.text);
+          const prompt = `我正在對廠區的消防設備進行例行安檢。\n設備種類：「${equipment.type}」\n設備位置：「${equipment.factory} ${equipment.floor} ${equipment.dept} - ${equipment.location}」\n\n目前發現以下檢查項目顯示異常：\n${failedQuestions.map(q => "- " + q).join('\n')}\n\n請根據以上資訊，幫我產生一段專業且簡明的「異常狀況描述與建議修繕說明」，字數約 50-100 字內，我將直接填寫至維修通報單中。`;
+          
+          const suggestion = await callGeminiAPI(prompt);
+          setRemark(prev => {
+            const trimmedPrev = prev.trim();
+            return trimmedPrev ? `${trimmedPrev}\n\n【AI 建議】\n${suggestion.trim()}` : suggestion.trim();
+          });
+        } catch (error) {
+          alert(error.message);
+        } finally {
+          setIsGeneratingAI(false);
+        }
+      };
 
       const handleSubmit = () => {
         onSubmit({ 
@@ -735,7 +862,19 @@
               ))}
             </div>
           </div>
-          {hasAbnormal && <div className="bg-red-50 p-4 rounded-xl border border-red-200 animate-in fade-in"><textarea className="w-full p-3 rounded-xl border outline-none focus:ring-2 focus:ring-red-200" rows="3" placeholder="備註異常狀況..." onChange={e=>setRemark(e.target.value)}></textarea></div>}
+          
+          {hasAbnormal && (
+            <div className="bg-red-50 p-4 rounded-xl border border-red-200 animate-in fade-in">
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-sm font-bold text-red-800">異常描述與備註：</span>
+                <button onClick={handleAIAssist} disabled={isGeneratingAI} className={`text-xs font-bold px-3 py-1.5 rounded-lg flex items-center gap-1 transition-colors shadow-sm ${isGeneratingAI ? 'ai-bg-shimmer text-purple-700 cursor-wait' : 'bg-purple-100 text-purple-700 hover:bg-purple-200'}`}>
+                  {isGeneratingAI ? '產生中...' : '✨ AI 改善建議'}
+                </button>
+              </div>
+              <textarea value={remark} className="w-full p-3 rounded-xl border outline-none focus:ring-2 focus:ring-red-200 text-sm leading-relaxed" rows="4" placeholder="自行填寫異常狀況，或點擊上方 AI 按鈕自動產生..." onChange={e=>setRemark(e.target.value)}></textarea>
+            </div>
+          )}
+
           <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
             <h3 className="font-bold mb-3 flex items-center gap-2"><Icon name="PenTool" size={18}/>點檢簽核</h3>
             <label className="text-xs font-bold text-gray-500 ml-1">檢查人姓名 (系統鎖定自動帶入)</label>
