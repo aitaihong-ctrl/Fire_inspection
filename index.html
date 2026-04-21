@@ -1390,6 +1390,7 @@
       const [editingUser, setEditingUser] = useState(null);
       const [isAddingUser, setIsAddingUser] = useState(false);
       const [showUserPassword, setShowUserPassword] = useState(false); 
+      const [userSearchWord, setUserSearchWord] = useState('');
 
       const parseCSVLine = (text) => {
         const result = [];
@@ -1608,6 +1609,8 @@
 
       const filteredList = equipmentList.filter(eq => (eq.id || '').toLowerCase().includes(searchWord.toLowerCase()) || (eq.location || '').includes(searchWord));
 
+      const filteredUsers = users.filter(u => (u.account || '').toLowerCase().includes(userSearchWord.toLowerCase()) || (u.name || '').toLowerCase().includes(userSearchWord.toLowerCase()));
+
       return (
         <div className="space-y-4 animate-in fade-in pb-10">
           
@@ -1793,8 +1796,15 @@
                   <button onClick={() => setIsAddingUser(true)} className="bg-purple-600 text-white text-sm px-3 py-1.5 rounded-lg font-bold flex items-center gap-1 hover:bg-purple-700 shadow-sm"><Icon name="Plus" size={16}/> 新增</button>
                 </div>
 
+                <div className="relative mb-4">
+                  <input type="text" placeholder="搜尋登入帳號或真實姓名..." className="w-full bg-gray-100 rounded-xl py-2.5 pl-10 pr-10 outline-none text-sm focus:ring-2 focus:ring-purple-200" value={userSearchWord} onChange={e=>setUserSearchWord(e.target.value)}/>
+                  <Icon name="Search" size={18} className="absolute left-3 top-2.5 text-gray-400" />
+                  {userSearchWord && <button onClick={() => setUserSearchWord('')} className="absolute right-3 top-2.5 text-gray-400"><Icon name="XCircle" size={18}/></button>}
+                </div>
+
                 <div className="space-y-3">
-                  {users.map((u, idx) => (
+                  <p className="text-xs text-gray-500 font-bold px-1">目前共計 {filteredUsers.length} 筆人員帳號</p>
+                  {filteredUsers.map((u, idx) => (
                     <div key={`${u.account}-${idx}`} className="p-3 border border-gray-200 rounded-xl flex items-center justify-between bg-gray-50 hover:bg-white transition-colors">
                       <div className="flex items-center gap-3">
                         <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-white ${u.role === 'admin' ? 'bg-red-500' : 'bg-purple-500'}`}>
