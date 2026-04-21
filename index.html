@@ -59,7 +59,7 @@
     const { useState, useEffect, useRef } = React;
 
     // --- Gemini API 整合 ---
-    const apiKey = ""; // The execution environment provides the key at runtime
+    const apiKey = ""; 
 
     const callGeminiAPI = async (prompt) => {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
@@ -141,15 +141,13 @@
       return <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>{icons[name]}</svg>;
     };
 
-    // --- 預設模擬資料 ---
+    // --- 資安重構：清空所有包含密碼的靜態模擬資料，嚴格依賴後端查驗 ---
     const mockEquipment = [
       { id: 'EXT-01', type: '滅火器', extinguisherType: '乾粉', quantity: 2, factory: '一廠', floor: '1F', zone: '大廳', location: '門口右側', dept: '總務部' },
       { id: 'HYD-01', type: '消防栓', quantity: 1, factory: '一廠', floor: '1F', zone: '大廳', location: '電梯旁', dept: '總務部' }
     ];
     const initialInspections = [];
-    const mockUsers = [
-      { account: 'admin', password: 'Admin@123', name: '系統管理員', role: 'admin', lastPasswordChange: new Date().toISOString() }
-    ];
+    const mockUsers = []; // ⭐ 資安更新：密碼不再寫入原始碼
 
     const EXTINGUISHER_QUESTIONS = [
       { id: 'q1', text: '壓力錶頭保持在綠色區及重量量測公斤數 (小數點一位)' },
@@ -167,7 +165,7 @@
       { id: 'q5', text: '閥門是否有漏水現象?' }
     ];
 
-    const GOOGLE_SHEET_API_URL = "https://script.google.com/macros/s/AKfycbwqc1u56dt1tuQiM5FQ_rBkq8zcBXNR0ahd8RYGLarg8O89N98by77eU9k8Hbd6Rjl_/exec"; 
+    const GOOGLE_SHEET_API_URL = "https://script.google.com/macros/s/AKfycbwqc1u56dt1tuQiM5FQ_rBkq8zcBXNR0ahd8RYGLarg8O89N98by77eU9k8Hbd6Rjl_/exec"; // 請在此填入更新後的 GAS URL
 
     const isPasswordComplexEnough = (pwd) => {
       const regex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
@@ -242,37 +240,27 @@
         }
       };
 
-      const handlePasswordChangeSuccess = async (newPassword) => {
-        const updatedUser = { 
-          ...currentUser, 
-          password: newPassword, 
-          lastPasswordChange: new Date().toISOString() 
-        };
-        
-        setCurrentUser(updatedUser);
-        setDbUsers(dbUsers.map(u => u.account === updatedUser.account ? updatedUser : u));
-        setShowPasswordChange(false);
-        setIsForcePasswordChange(false);
-        setAlertMsg('密碼變更成功！');
-
-        if (GOOGLE_SHEET_API_URL) {
-          try {
-            await fetch(GOOGLE_SHEET_API_URL, {
-              method: 'POST',
-              body: JSON.stringify({ action: 'updateUser', account: updatedUser.account, data: updatedUser })
-            });
-          } catch (err) {
-            console.error("同步密碼變更至 Google Sheets 失敗:", err);
-          }
+      const handleLogout = () => {
+        if(window.confirm("確定要登出嗎？")) {
+          setCurrentUser(null);
+          setActiveTab('dashboard');
         }
       };
 
       if (!currentUser) {
-        return <LoginScreen users={dbUsers} onLogin={handleLoginSuccess} />;
+        return <LoginScreen onLogin={handleLoginSuccess} apiUrl={GOOGLE_SHEET_API_URL} />;
       }
 
       if (showPasswordChange) {
-        return <ChangePasswordScreen user={currentUser} isForced={isForcePasswordChange} onSuccess={handlePasswordChangeSuccess} onCancel={() => setShowPasswordChange(false)} />;
+        return <ChangePasswordScreen user={currentUser} isForced={isForcePasswordChange} apiUrl={GOOGLE_SHEET_API_URL} 
+                 onSuccess={(updatedUser) => {
+                   setCurrentUser(updatedUser);
+                   setDbUsers(dbUsers.map(u => u.account === updatedUser.account ? updatedUser : u));
+                   setShowPasswordChange(false);
+                   setIsForcePasswordChange(false);
+                   setAlertMsg('密碼變更成功！');
+                 }} 
+                 onCancel={() => setShowPasswordChange(false)} />;
       }
 
       const navigateTo = (tab, eqId = null) => {
@@ -332,13 +320,6 @@
         }
       };
 
-      const handleLogout = () => {
-        if(window.confirm("確定要登出嗎？")) {
-          setCurrentUser(null);
-          setActiveTab('dashboard');
-        }
-      };
-
       return (
         <div className="min-h-screen bg-gray-50 pb-20 font-sans text-gray-800 print:bg-white">
           
@@ -377,7 +358,7 @@
             {activeTab === 'detail' && selectedEqId && <InspectionReport equipment={dbEquipment.find(e => (e.id || '').toString().trim() === (selectedEqId || '').toString().trim())} inspections={inspections} onBack={() => navigateTo('list')} />}
             {activeTab === 'records' && <RecordList equipmentList={dbEquipment} inspections={inspections} />}
             {activeTab === 'batch-print' && <BatchPrintView equipmentList={dbEquipment} inspections={inspections} onBack={() => navigateTo('dashboard')} />}
-            {activeTab === 'admin' && <EquipmentManager equipmentList={dbEquipment} setDbEquipment={setDbEquipment} users={dbUsers} setDbUsers={setDbUsers} setAlertMsg={setAlertMsg} />}
+            {activeTab === 'admin' && <EquipmentManager equipmentList={dbEquipment} setDbEquipment={setDbEquipment} users={dbUsers} setDbUsers={setDbUsers} apiUrl={GOOGLE_SHEET_API_URL} setAlertMsg={setAlertMsg} />}
             
             {activeTab === 'success' && (
               <div className="flex flex-col items-center justify-center py-20 text-center animate-in fade-in zoom-in duration-300 print:hidden">
@@ -401,6 +382,7 @@
             <button onClick={() => navigateTo('records')} className={`flex flex-col items-center p-2 w-1/5 ${activeTab === 'records' ? 'text-red-700' : 'text-gray-400'}`}>
               <Icon name="History" size={24} /><span className="text-xs mt-1 font-medium">明細</span>
             </button>
+            {/* 僅管理員顯示管理後台按鈕 */}
             {currentUser.role === 'admin' ? (
               <button onClick={() => navigateTo('admin')} className={`flex flex-col items-center p-2 w-1/5 ${activeTab === 'admin' ? 'text-red-700' : 'text-gray-400'}`}>
                 <Icon name="Settings" size={24} /><span className="text-xs mt-1 font-medium">管理</span>
@@ -413,25 +395,22 @@
       );
     }
 
-    // --- 密碼變更畫面 ---
-    function ChangePasswordScreen({ user, isForced, onSuccess, onCancel }) {
+    // --- 密碼變更畫面 (後端驗證) ---
+    function ChangePasswordScreen({ user, isForced, apiUrl, onSuccess, onCancel }) {
       const [oldPwd, setOldPwd] = useState('');
       const [newPwd, setNewPwd] = useState('');
       const [confirmPwd, setConfirmPwd] = useState('');
       const [error, setError] = useState('');
+      const [isSubmitting, setIsSubmitting] = useState(false);
       
       const [showOldPwd, setShowOldPwd] = useState(false);
       const [showNewPwd, setShowNewPwd] = useState(false);
       const [showConfirmPwd, setShowConfirmPwd] = useState(false);
 
-      const handleSubmit = (e) => {
+      const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
 
-        if (oldPwd !== user.password) {
-          setError('舊密碼輸入錯誤');
-          return;
-        }
         if (newPwd !== confirmPwd) {
           setError('兩次輸入的新密碼不一致');
           return;
@@ -445,7 +424,31 @@
           return;
         }
 
-        onSuccess(newPwd);
+        // 如果沒有設定 API URL，先阻擋 (避免假安全)
+        if (!apiUrl) {
+          setError('尚未設定雲端資料庫 API，無法變更密碼。');
+          return;
+        }
+
+        setIsSubmitting(true);
+        try {
+          const response = await fetch(apiUrl, {
+            method: 'POST',
+            body: JSON.stringify({ action: 'changePassword', account: user.account, oldPassword: oldPwd, newPassword: newPwd })
+          });
+          const data = await response.json();
+          
+          if (data.status === 'success') {
+            const updatedUser = { ...user, password: newPwd, lastPasswordChange: new Date().toISOString() };
+            onSuccess(updatedUser);
+          } else {
+            setError(data.message || '變更密碼失敗，請確認舊密碼是否正確。');
+          }
+        } catch (err) {
+          setError('連線失敗，請檢查網路狀態。');
+        } finally {
+          setIsSubmitting(false);
+        }
       };
 
       return (
@@ -476,7 +479,7 @@
               <div className="pt-2 border-t">
                 <label className="text-xs font-bold text-gray-500 ml-1">設定新密碼</label>
                 <div className="relative mt-1">
-                  <input type={showNewPwd ? "text" : "password"} required value={newPwd} onChange={e=>setNewPwd(e.target.value)} className="w-full border-2 border-gray-200 rounded-xl p-3 outline-none focus:border-yellow-500 transition-colors font-bold pr-10 tracking-widest" placeholder="大小寫英文+數字，至少8碼" />
+                  <input type={showNewPwd ? "text" : "password"} required value={newPwd} onChange={e=>setNewPwd(e.target.value)} className="w-full border-2 border-gray-200 rounded-xl p-3 outline-none focus:border-yellow-500 transition-colors font-bold pr-10 tracking-widest" placeholder="大小/寫英文+數字，至少8碼" />
                   <button type="button" onClick={() => setShowNewPwd(!showNewPwd)} className="absolute right-3 top-3.5 text-gray-400 hover:text-gray-600 focus:outline-none">
                     <Icon name={showNewPwd ? "EyeOff" : "Eye"} size={20} />
                   </button>
@@ -494,9 +497,9 @@
               
               <div className="flex gap-3 pt-4">
                 {!isForced && (
-                  <button type="button" onClick={onCancel} className="flex-1 py-3 bg-gray-100 text-gray-600 rounded-xl font-bold hover:bg-gray-200 transition-colors">取消</button>
+                  <button type="button" onClick={onCancel} disabled={isSubmitting} className="flex-1 py-3 bg-gray-100 text-gray-600 rounded-xl font-bold hover:bg-gray-200 transition-colors">取消</button>
                 )}
-                <button type="submit" className="flex-1 py-3 bg-yellow-500 text-white rounded-xl font-bold shadow-md hover:bg-yellow-600 transition-colors">確認變更</button>
+                <button type="submit" disabled={isSubmitting} className={`flex-1 py-3 text-white rounded-xl font-bold shadow-md transition-colors ${isSubmitting ? 'bg-yellow-300' : 'bg-yellow-500 hover:bg-yellow-600'}`}>{isSubmitting ? '驗證中...' : '確認變更'}</button>
               </div>
             </form>
           </div>
@@ -504,21 +507,41 @@
       );
     }
 
-    // --- 登入畫面元件 ---
-    function LoginScreen({ users, onLogin }) {
+    // --- 登入畫面元件 (後端驗證) ---
+    function LoginScreen({ onLogin, apiUrl }) {
       const [account, setAccount] = useState('');
       const [password, setPassword] = useState('');
       const [showPassword, setShowPassword] = useState(false);
       const [error, setError] = useState('');
+      const [isLoggingIn, setIsLoggingIn] = useState(false);
 
-      const handleLogin = (e) => {
+      const handleLogin = async (e) => {
         e.preventDefault();
-        const user = users.find(u => u.account === account.trim() && u.password === password);
-        if (user) {
-          setError('');
-          onLogin(user);
-        } else {
-          setError('帳號或密碼錯誤，請重新輸入');
+        setError('');
+        
+        // 若無 API URL，代表尚未接上後端，提供防呆提示
+        if (!apiUrl) {
+          setError('系統尚未連線至資料庫，請先設定 API 網址！');
+          return;
+        }
+
+        setIsLoggingIn(true);
+        try {
+          const response = await fetch(apiUrl, {
+            method: 'POST',
+            body: JSON.stringify({ action: 'login', account: account.trim(), password: password })
+          });
+          const data = await response.json();
+          
+          if (data.status === 'success') {
+            onLogin(data.user);
+          } else {
+            setError(data.message || '帳號或密碼錯誤，請重新輸入');
+          }
+        } catch (err) {
+          setError('系統連線失敗，請檢查網路狀態');
+        } finally {
+          setIsLoggingIn(false);
         }
       };
 
@@ -528,7 +551,7 @@
             <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
               <Icon name="Lock" size={40} className="text-red-600" />
             </div>
-            <h2 className="text-2xl font-black text-center text-gray-800 mb-2">廠區消防設備點檢系統登入</h2>
+            <h2 className="text-2xl font-black text-center text-gray-800 mb-2">系統登入</h2>
             <p className="text-sm text-gray-500 text-center mb-8">請輸入您的巡檢帳號與密碼</p>
             
             {error && <div className="bg-red-50 text-red-600 text-sm font-bold p-3 rounded-lg mb-6 text-center border border-red-200">{error}</div>}
@@ -547,7 +570,9 @@
                   </button>
                 </div>
               </div>
-              <button type="submit" className="w-full py-3.5 bg-red-600 text-white rounded-xl font-bold shadow-md hover:bg-red-700 transition-colors mt-4 text-lg">登入系統</button>
+              <button type="submit" disabled={isLoggingIn} className={`w-full py-3.5 text-white rounded-xl font-bold shadow-md transition-colors mt-4 text-lg ${isLoggingIn ? 'bg-red-400' : 'bg-red-600 hover:bg-red-700'}`}>
+                {isLoggingIn ? '驗證中...' : '登入系統'}
+              </button>
             </form>
           </div>
         </div>
@@ -1517,7 +1542,7 @@
     }
 
     // --- 設備與人員管理員介面 ---
-    function EquipmentManager({ equipmentList, setDbEquipment, users, setDbUsers, setAlertMsg }) {
+    function EquipmentManager({ equipmentList, setDbEquipment, users, setDbUsers, apiUrl, setAlertMsg }) {
       const [adminTab, setAdminTab] = useState('equipment'); 
       
       const [editingEq, setEditingEq] = useState(null);
@@ -1621,15 +1646,15 @@
 
           const finalUserList = newUserList.some(u => u.account === 'admin') 
             ? newUserList 
-            : [{account: 'admin', password: 'Admin@123', name: '系統管理員', role: 'admin', lastPasswordChange: new Date().toISOString()}, ...newUserList];
+            : [{account: 'admin', password: '********', name: '系統管理員', role: 'admin', lastPasswordChange: new Date().toISOString()}, ...newUserList];
 
           setDbUsers(finalUserList);
           setAlertMsg(`成功匯入 ${finalUserList.length} 筆人員資料！\n(正在背景同步至雲端...)`);
           if(userFileInputRef.current) userFileInputRef.current.value = '';
 
-          if (GOOGLE_SHEET_API_URL) {
+          if (apiUrl) {
             try {
-              await fetch(GOOGLE_SHEET_API_URL, {
+              await fetch(apiUrl, {
                 method: 'POST',
                 body: JSON.stringify({ action: 'importUsers', data: finalUserList })
               });
@@ -1683,7 +1708,7 @@
         const isResetPassword = formData.get('resetPassword') === 'true'; 
         const inputPassword = formData.get('password').trim();
 
-        if (!isPasswordComplexEnough(inputPassword)) {
+        if (inputPassword !== '********' && !isPasswordComplexEnough(inputPassword)) {
           setAlertMsg('設定失敗：密碼必須包含大小寫英文及數字，且長度至少 8 碼。');
           return;
         }
@@ -1713,9 +1738,9 @@
         setIsAddingUser(false);
         setShowUserPassword(false);
 
-        if (GOOGLE_SHEET_API_URL) {
+        if (apiUrl) {
           try {
-            await fetch(GOOGLE_SHEET_API_URL, {
+            await fetch(apiUrl, {
               method: 'POST',
               body: JSON.stringify({ action: actionType, account: newUser.account, data: newUser })
             });
@@ -1733,9 +1758,9 @@
         if (window.confirm(`確定要刪除帳號 ${account} 嗎？`)) {
           setDbUsers(users.filter(u => u.account !== account));
           
-          if (GOOGLE_SHEET_API_URL) {
+          if (apiUrl) {
             try {
-              await fetch(GOOGLE_SHEET_API_URL, {
+              await fetch(apiUrl, {
                 method: 'POST',
                 body: JSON.stringify({ action: 'deleteUser', account: account })
               });
@@ -1887,7 +1912,7 @@
                         <div>
                           <label className="text-xs font-bold text-gray-500 ml-1">登入密碼 *</label>
                           <div className="relative mt-1">
-                            <input name="password" type={showUserPassword ? "text" : "password"} defaultValue={editingUser?.password} required className="w-full border-2 border-gray-200 rounded-xl p-2.5 outline-none focus:border-purple-500 pr-10 tracking-widest font-bold" placeholder="設定密碼" />
+                            <input name="password" type={showUserPassword ? "text" : "password"} defaultValue={editingUser?.password || ''} required className="w-full border-2 border-gray-200 rounded-xl p-2.5 outline-none focus:border-purple-500 pr-10 tracking-widest font-bold" placeholder="設定密碼" />
                             <button type="button" onClick={() => setShowUserPassword(!showUserPassword)} className="absolute right-3 top-3.5 text-gray-400 hover:text-gray-600 focus:outline-none">
                               <Icon name={showUserPassword ? "EyeOff" : "Eye"} size={18} />
                             </button>
