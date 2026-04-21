@@ -60,7 +60,6 @@
 
     // --- Gemini API 整合 ---
     const apiKey = ""; 
-
     const callGeminiAPI = async (prompt) => {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
       const payload = {
@@ -141,13 +140,15 @@
       return <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>{icons[name]}</svg>;
     };
 
-    // --- 資安重構：清空所有包含密碼的靜態模擬資料，嚴格依賴後端查驗 ---
-    const mockEquipment = [
-      { id: 'EXT-01', type: '滅火器', extinguisherType: '乾粉', quantity: 2, factory: '一廠', floor: '1F', zone: '大廳', location: '門口右側', dept: '總務部' },
-      { id: 'HYD-01', type: '消防栓', quantity: 1, factory: '一廠', floor: '1F', zone: '大廳', location: '電梯旁', dept: '總務部' }
-    ];
+    // --- 系統設定 ---
+    // 請填入您的 Google Apps Script 網址
+    const GOOGLE_SHEET_API_URL = "https://script.google.com/macros/s/AKfycbwqc1u56dt1tuQiM5FQ_rBkq8zcBXNR0ahd8RYGLarg8O89N98by77eU9k8Hbd6Rjl_/exec"; 
+    // ⭐ 新增：系統後台 API 認證金鑰 (必須與 GAS 中一致)
+    const SYSTEM_SECRET_KEY = "TCI_FireSafety_2026_!@#";
+
+    const mockEquipment = [];
     const initialInspections = [];
-    const mockUsers = []; // ⭐ 資安更新：密碼不再寫入原始碼
+    const mockUsers = []; 
 
     const EXTINGUISHER_QUESTIONS = [
       { id: 'q1', text: '壓力錶頭保持在綠色區及重量量測公斤數 (小數點一位)' },
@@ -164,8 +165,6 @@
       { id: 'q4', text: '紅色警示燈是否保持明亮?' },
       { id: 'q5', text: '閥門是否有漏水現象?' }
     ];
-
-    const GOOGLE_SHEET_API_URL = "https://script.google.com/macros/s/AKfycbwqc1u56dt1tuQiM5FQ_rBkq8zcBXNR0ahd8RYGLarg8O89N98by77eU9k8Hbd6Rjl_/exec"; // 請在此填入更新後的 GAS URL
 
     const isPasswordComplexEnough = (pwd) => {
       const regex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
@@ -217,17 +216,18 @@
         if (!GOOGLE_SHEET_API_URL) return; 
         setIsLoading(true);
         
-        fetch(`${GOOGLE_SHEET_API_URL}?action=getEquipment`).then(res => res.json())
+        // ⭐ 載入資料時夾帶金鑰
+        fetch(`${GOOGLE_SHEET_API_URL}?action=getEquipment&secret=${SYSTEM_SECRET_KEY}`).then(res => res.json())
           .then(data => { if (data && !data.error) setDbEquipment(data); }).catch(console.error);
           
-        fetch(`${GOOGLE_SHEET_API_URL}?action=getInspections`).then(res => res.json())
+        fetch(`${GOOGLE_SHEET_API_URL}?action=getInspections&secret=${SYSTEM_SECRET_KEY}`).then(res => res.json())
           .then(data => {
             if (data && !data.error) {
               setInspections(data.map(item => ({ ...item, answers: typeof item.answers === 'string' ? JSON.parse(item.answers) : item.answers, hasAbnormal: String(item.hasAbnormal).toLowerCase() === 'true' })));
             }
           }).catch(console.error);
 
-        fetch(`${GOOGLE_SHEET_API_URL}?action=getUsers`).then(res => res.json())
+        fetch(`${GOOGLE_SHEET_API_URL}?action=getUsers&secret=${SYSTEM_SECRET_KEY}`).then(res => res.json())
           .then(data => { if (data && !data.error && data.length > 0) setDbUsers(data); }).catch(console.error)
           .finally(() => setIsLoading(false));
       }, []);
@@ -312,9 +312,15 @@
 
         if (GOOGLE_SHEET_API_URL) {
           try {
-            await fetch(GOOGLE_SHEET_API_URL, { method: 'POST', body: JSON.stringify({ action: 'addInspection', data: { ...newRecord, answers: JSON.stringify(newRecord.answers) } }) });
+            await fetch(GOOGLE_SHEET_API_URL, { 
+              method: 'POST', 
+              body: JSON.stringify({ action: 'addInspection', secret: SYSTEM_SECRET_KEY, data: { ...newRecord, answers: JSON.stringify(newRecord.answers) } }) 
+            });
             if (selectedTypeIfMissing || hasQuantityChanged) {
-              await fetch(GOOGLE_SHEET_API_URL, { method: 'POST', body: JSON.stringify({ action: 'updateEquipmentData', id: safeRecordId, newType: selectedTypeIfMissing, newQuantity: updatedQuantity }) });
+              await fetch(GOOGLE_SHEET_API_URL, { 
+                method: 'POST', 
+                body: JSON.stringify({ action: 'updateEquipmentData', secret: SYSTEM_SECRET_KEY, id: safeRecordId, newType: selectedTypeIfMissing, newQuantity: updatedQuantity }) 
+              });
             }
           } catch (err) { console.error("儲存至 Google Sheets 失敗:", err); }
         }
@@ -382,7 +388,6 @@
             <button onClick={() => navigateTo('records')} className={`flex flex-col items-center p-2 w-1/5 ${activeTab === 'records' ? 'text-red-700' : 'text-gray-400'}`}>
               <Icon name="History" size={24} /><span className="text-xs mt-1 font-medium">明細</span>
             </button>
-            {/* 僅管理員顯示管理後台按鈕 */}
             {currentUser.role === 'admin' ? (
               <button onClick={() => navigateTo('admin')} className={`flex flex-col items-center p-2 w-1/5 ${activeTab === 'admin' ? 'text-red-700' : 'text-gray-400'}`}>
                 <Icon name="Settings" size={24} /><span className="text-xs mt-1 font-medium">管理</span>
@@ -395,7 +400,7 @@
       );
     }
 
-    // --- 密碼變更畫面 (後端驗證) ---
+    // --- 密碼變更畫面 ---
     function ChangePasswordScreen({ user, isForced, apiUrl, onSuccess, onCancel }) {
       const [oldPwd, setOldPwd] = useState('');
       const [newPwd, setNewPwd] = useState('');
@@ -424,9 +429,8 @@
           return;
         }
 
-        // 如果沒有設定 API URL，先阻擋 (避免假安全)
         if (!apiUrl) {
-          setError('尚未設定雲端資料庫 API，無法變更密碼。');
+          setError('尚未設定雲端 API，無法變更密碼。');
           return;
         }
 
@@ -434,7 +438,7 @@
         try {
           const response = await fetch(apiUrl, {
             method: 'POST',
-            body: JSON.stringify({ action: 'changePassword', account: user.account, oldPassword: oldPwd, newPassword: newPwd })
+            body: JSON.stringify({ action: 'changePassword', secret: SYSTEM_SECRET_KEY, account: user.account, oldPassword: oldPwd, newPassword: newPwd })
           });
           const data = await response.json();
           
@@ -479,7 +483,7 @@
               <div className="pt-2 border-t">
                 <label className="text-xs font-bold text-gray-500 ml-1">設定新密碼</label>
                 <div className="relative mt-1">
-                  <input type={showNewPwd ? "text" : "password"} required value={newPwd} onChange={e=>setNewPwd(e.target.value)} className="w-full border-2 border-gray-200 rounded-xl p-3 outline-none focus:border-yellow-500 transition-colors font-bold pr-10 tracking-widest" placeholder="大小/寫英文+數字，至少8碼" />
+                  <input type={showNewPwd ? "text" : "password"} required value={newPwd} onChange={e=>setNewPwd(e.target.value)} className="w-full border-2 border-gray-200 rounded-xl p-3 outline-none focus:border-yellow-500 transition-colors font-bold pr-10 tracking-widest" placeholder="大小寫英文+數字，至少8碼" />
                   <button type="button" onClick={() => setShowNewPwd(!showNewPwd)} className="absolute right-3 top-3.5 text-gray-400 hover:text-gray-600 focus:outline-none">
                     <Icon name={showNewPwd ? "EyeOff" : "Eye"} size={20} />
                   </button>
@@ -507,7 +511,7 @@
       );
     }
 
-    // --- 登入畫面元件 (後端驗證) ---
+    // --- 登入畫面元件 ---
     function LoginScreen({ onLogin, apiUrl }) {
       const [account, setAccount] = useState('');
       const [password, setPassword] = useState('');
@@ -519,9 +523,8 @@
         e.preventDefault();
         setError('');
         
-        // 若無 API URL，代表尚未接上後端，提供防呆提示
         if (!apiUrl) {
-          setError('系統尚未連線至資料庫，請先設定 API 網址！');
+          setError('尚未設定雲端資料庫 API，無法登入！');
           return;
         }
 
@@ -529,7 +532,7 @@
         try {
           const response = await fetch(apiUrl, {
             method: 'POST',
-            body: JSON.stringify({ action: 'login', account: account.trim(), password: password })
+            body: JSON.stringify({ action: 'login', secret: SYSTEM_SECRET_KEY, account: account.trim(), password: password })
           });
           const data = await response.json();
           
@@ -1644,6 +1647,7 @@
             if (obj.account) newUserList.push(obj);
           }
 
+          // 防呆：確保不被完全刪除，強制補回 (這裡不需要在密碼寫死)
           const finalUserList = newUserList.some(u => u.account === 'admin') 
             ? newUserList 
             : [{account: 'admin', password: '********', name: '系統管理員', role: 'admin', lastPasswordChange: new Date().toISOString()}, ...newUserList];
@@ -1656,7 +1660,7 @@
             try {
               await fetch(apiUrl, {
                 method: 'POST',
-                body: JSON.stringify({ action: 'importUsers', data: finalUserList })
+                body: JSON.stringify({ action: 'importUsers', secret: SYSTEM_SECRET_KEY, data: finalUserList })
               });
             } catch (err) {
               console.error("同步至 Google Sheets 失敗:", err);
@@ -1742,7 +1746,7 @@
           try {
             await fetch(apiUrl, {
               method: 'POST',
-              body: JSON.stringify({ action: actionType, account: newUser.account, data: newUser })
+              body: JSON.stringify({ action: actionType, secret: SYSTEM_SECRET_KEY, account: newUser.account, data: newUser })
             });
           } catch (err) {
             console.error("同步使用者至 Google Sheets 失敗:", err);
@@ -1762,7 +1766,7 @@
             try {
               await fetch(apiUrl, {
                 method: 'POST',
-                body: JSON.stringify({ action: 'deleteUser', account: account })
+                body: JSON.stringify({ action: 'deleteUser', secret: SYSTEM_SECRET_KEY, account: account })
               });
             } catch (err) {
               console.error("刪除使用者同步失敗:", err);
@@ -1917,7 +1921,6 @@
                               <Icon name={showUserPassword ? "EyeOff" : "Eye"} size={18} />
                             </button>
                           </div>
-                          {/* 如果是管理員修改別人密碼，預設勾選重設 */}
                           {!isAddingUser && (
                             <div className="flex items-center gap-1 mt-2">
                               <input type="checkbox" name="resetPassword" id="resetPassword" value="true" defaultChecked />
