@@ -143,12 +143,15 @@
     // --- 系統設定 ---
     // 請填入您的 Google Apps Script 網址
     const GOOGLE_SHEET_API_URL = "https://script.google.com/macros/s/AKfycbwqc1u56dt1tuQiM5FQ_rBkq8zcBXNR0ahd8RYGLarg8O89N98by77eU9k8Hbd6Rjl_/exec"; 
-    // ⭐ 新增：系統後台 API 認證金鑰 (必須與 GAS 中一致)
+    // ⭐ 系統後台 API 認證金鑰 (必須與 GAS 中一致)
     const SYSTEM_SECRET_KEY = "TCI_FireSafety_2026_!@#";
 
-    const mockEquipment = [];
+    const mockEquipment = [
+      { id: 'EXT-01', type: '滅火器', extinguisherType: '乾粉', quantity: 2, factory: '一廠', floor: '1F', zone: '大廳', location: '門口右側', dept: '總務部' },
+      { id: 'HYD-01', type: '消防栓', quantity: 1, factory: '一廠', floor: '1F', zone: '大廳', location: '電梯旁', dept: '總務部' }
+    ];
     const initialInspections = [];
-    const mockUsers = []; 
+    const mockUsers = []; // ⭐ 資安更新修復：徹底清空前端密碼，不寫入原始碼
 
     const EXTINGUISHER_QUESTIONS = [
       { id: 'q1', text: '壓力錶頭保持在綠色區及重量量測公斤數 (小數點一位)' },
@@ -216,7 +219,7 @@
         if (!GOOGLE_SHEET_API_URL) return; 
         setIsLoading(true);
         
-        // ⭐ 載入資料時夾帶金鑰 (已加上 encodeURIComponent 處理特殊符號)
+        // ⭐ 載入資料時夾帶金鑰，並且用 encodeURIComponent 處理特殊符號
         const safeSecret = encodeURIComponent(SYSTEM_SECRET_KEY);
         
         fetch(`${GOOGLE_SHEET_API_URL}?action=getEquipment&secret=${safeSecret}`).then(res => res.json())
@@ -250,7 +253,7 @@
       };
 
       if (!currentUser) {
-        return <LoginScreen onLogin={handleLoginSuccess} apiUrl={GOOGLE_SHEET_API_URL} />;
+        return <LoginScreen onLogin={handleLoginSuccess} apiUrl={GOOGLE_SHEET_API_URL} users={dbUsers} />;
       }
 
       if (showPasswordChange) {
@@ -286,13 +289,24 @@
         const safeRecordId = (record.equipmentId || '').toString().trim();
         const existingIndex = inspections.findIndex(i => (i.equipmentId || '').toString().trim() === safeRecordId && Number(i.year) === now.getFullYear() && Number(i.month) === (now.getMonth() + 1));
         
+        // 取得當前客戶端 IP 位址
+        let currentIp = "未知 IP";
+        try {
+          const ipRes = await fetch('https://api.ipify.org?format=json');
+          const ipData = await ipRes.json();
+          currentIp = ipData.ip;
+        } catch (e) {
+          console.warn("無法取得 IP:", e);
+        }
+
         let newInspections = [...inspections];
         const newRecord = { 
           ...record, 
           equipmentId: safeRecordId,
           date: now.toLocaleString(),
           month: now.getMonth() + 1,
-          year: now.getFullYear()
+          year: now.getFullYear(),
+          clientIp: currentIp
         };
 
         if (existingIndex >= 0) newInspections[existingIndex] = newRecord;
@@ -390,6 +404,7 @@
             <button onClick={() => navigateTo('records')} className={`flex flex-col items-center p-2 w-1/5 ${activeTab === 'records' ? 'text-red-700' : 'text-gray-400'}`}>
               <Icon name="History" size={24} /><span className="text-xs mt-1 font-medium">明細</span>
             </button>
+            {/* 僅管理員顯示管理後台按鈕 */}
             {currentUser.role === 'admin' ? (
               <button onClick={() => navigateTo('admin')} className={`flex flex-col items-center p-2 w-1/5 ${activeTab === 'admin' ? 'text-red-700' : 'text-gray-400'}`}>
                 <Icon name="Settings" size={24} /><span className="text-xs mt-1 font-medium">管理</span>
@@ -402,7 +417,7 @@
       );
     }
 
-    // --- 密碼變更畫面 ---
+    // --- 密碼變更畫面 (後端驗證) ---
     function ChangePasswordScreen({ user, isForced, apiUrl, onSuccess, onCancel }) {
       const [oldPwd, setOldPwd] = useState('');
       const [newPwd, setNewPwd] = useState('');
@@ -432,7 +447,7 @@
         }
 
         if (!apiUrl) {
-          setError('尚未設定雲端 API，無法變更密碼。');
+          setError('尚未設定雲端資料庫 API，無法變更密碼。');
           return;
         }
 
@@ -513,8 +528,8 @@
       );
     }
 
-    // --- 登入畫面元件 ---
-    function LoginScreen({ onLogin, apiUrl }) {
+    // --- 登入畫面元件 (後端驗證) ---
+    function LoginScreen({ onLogin, apiUrl, users }) {
       const [account, setAccount] = useState('');
       const [password, setPassword] = useState('');
       const [showPassword, setShowPassword] = useState(false);
@@ -526,7 +541,7 @@
         setError('');
         
         if (!apiUrl) {
-          setError('尚未設定雲端資料庫 API，無法登入！');
+          setError('系統尚未連線至資料庫，請先設定 API 網址！');
           return;
         }
 
@@ -556,7 +571,7 @@
             <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
               <Icon name="Lock" size={40} className="text-red-600" />
             </div>
-            <h2 className="text-2xl font-black text-center text-gray-800 mb-2">廠區消防設備點檢系統登入</h2>
+            <h2 className="text-2xl font-black text-center text-gray-800 mb-2">廠區防設備點檢系統登入</h2>
             <p className="text-sm text-gray-500 text-center mb-8">請輸入您的巡檢帳號與密碼</p>
             
             {error && <div className="bg-red-50 text-red-600 text-sm font-bold p-3 rounded-lg mb-6 text-center border border-red-200">{error}</div>}
@@ -1424,7 +1439,7 @@
       const handleExportCSV = () => {
         if (displayList.length === 0) return;
         try {
-          const headers = ['查詢年份', '查詢月份', '設備編號', '設備種類', '滅火器種類', '廠區', '樓層', '區域', '責任單位', '狀態', '點檢時間', '檢查人姓名', '火源責任者姓名', '重量', '備註'];
+          const headers = ['查詢年份', '查詢月份', '設備編號', '設備種類', '滅火器種類', '廠區', '樓層', '區域', '責任單位', '狀態', '點檢時間', '檢查人姓名', '火源責任者姓名', '重量', '備註', 'IP位址'];
           const csvRows = [headers.join(',')];
 
           displayList.forEach(record => {
@@ -1432,7 +1447,7 @@
             const statusLabel = record.isUninspected ? '尚未點檢' : (record.hasAbnormal ? '異常' : '正常');
             const row = [
               record.year || filterYear, record.month || filterMonth, record.equipmentId, eq.type || '', eq.extinguisherType || '', eq.factory || '', eq.floor || '', eq.zone || '', eq.dept || '',
-              statusLabel, record.date || '-', record.inspectorName || '-', record.managerName || '-', record.weight || '-', `"${(record.remark || '').replace(/"/g, '""')}"`
+              statusLabel, record.date || '-', record.inspectorName || '-', record.managerName || '-', record.weight || '-', `"${(record.remark || '').replace(/"/g, '""')}"`, record.clientIp || '-'
             ];
             csvRows.push(row.join(','));
           });
@@ -1526,7 +1541,7 @@
                       {isUninspected ? (
                         <>{eq.location} | 責任：{eq.dept}</>
                       ) : (
-                        <>單位：{eq.dept} | 檢查人：{record.inspectorName}</>
+                        <>單位：{eq.dept} | 檢查人：{record.inspectorName} | IP：{record.clientIp || '未知'}</>
                       )}
                     </div>
                     
@@ -1923,6 +1938,7 @@
                               <Icon name={showUserPassword ? "EyeOff" : "Eye"} size={18} />
                             </button>
                           </div>
+                          {/* 如果是管理員修改別人密碼，預設勾選重設 */}
                           {!isAddingUser && (
                             <div className="flex items-center gap-1 mt-2">
                               <input type="checkbox" name="resetPassword" id="resetPassword" value="true" defaultChecked />
