@@ -216,18 +216,20 @@
         if (!GOOGLE_SHEET_API_URL) return; 
         setIsLoading(true);
         
-        // ⭐ 載入資料時夾帶金鑰
-        fetch(`${GOOGLE_SHEET_API_URL}?action=getEquipment&secret=${SYSTEM_SECRET_KEY}`).then(res => res.json())
+        // ⭐ 載入資料時夾帶金鑰 (已加上 encodeURIComponent 處理特殊符號)
+        const safeSecret = encodeURIComponent(SYSTEM_SECRET_KEY);
+        
+        fetch(`${GOOGLE_SHEET_API_URL}?action=getEquipment&secret=${safeSecret}`).then(res => res.json())
           .then(data => { if (data && !data.error) setDbEquipment(data); }).catch(console.error);
           
-        fetch(`${GOOGLE_SHEET_API_URL}?action=getInspections&secret=${SYSTEM_SECRET_KEY}`).then(res => res.json())
+        fetch(`${GOOGLE_SHEET_API_URL}?action=getInspections&secret=${safeSecret}`).then(res => res.json())
           .then(data => {
             if (data && !data.error) {
               setInspections(data.map(item => ({ ...item, answers: typeof item.answers === 'string' ? JSON.parse(item.answers) : item.answers, hasAbnormal: String(item.hasAbnormal).toLowerCase() === 'true' })));
             }
           }).catch(console.error);
 
-        fetch(`${GOOGLE_SHEET_API_URL}?action=getUsers&secret=${SYSTEM_SECRET_KEY}`).then(res => res.json())
+        fetch(`${GOOGLE_SHEET_API_URL}?action=getUsers&secret=${safeSecret}`).then(res => res.json())
           .then(data => { if (data && !data.error && data.length > 0) setDbUsers(data); }).catch(console.error)
           .finally(() => setIsLoading(false));
       }, []);
