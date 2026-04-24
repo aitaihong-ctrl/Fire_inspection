@@ -1006,10 +1006,13 @@
                     const rec = eqInspections.find(i=>Number(i.month)===m);
                     let dateStr = '';
                     if (rec?.managerName && rec?.managerDate) {
-                      try {
-                        const d = new Date(rec.managerDate);
-                        dateStr = !isNaN(d.getTime()) ? ` ${d.getMonth() + 1}/${d.getDate()}` : ` ${rec.managerDate.split(' ')[0].split('/').slice(1).join('/')}`;
-                      } catch(e) {}
+                      // 強制使用正則提取月/日，避免手機瀏覽器解析時間失敗
+                      const match = String(rec.managerDate).match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+                      if (match) {
+                        dateStr = ` ${parseInt(match[2], 10)}/${parseInt(match[3], 10)}`;
+                      } else {
+                        dateStr = ` ${String(rec.managerDate).split(/[ T]/)[0]}`;
+                      }
                     }
                     return <td key={m} colSpan={2} className="border border-black p-0.5 text-blue-800 tracking-tighter break-all text-[10px] sm:text-[11px]">{rec?.managerName || ''}<span className="text-gray-500 font-normal">{dateStr}</span></td>;
                   })}
@@ -1020,10 +1023,13 @@
                     const rec = eqInspections.find(i=>Number(i.month)===m);
                     let dateStr = '';
                     if (rec?.inspectorName && rec?.date) {
-                      try {
-                        const d = new Date(rec.date);
-                        dateStr = !isNaN(d.getTime()) ? ` ${d.getMonth() + 1}/${d.getDate()}` : ` ${rec.date.split(' ')[0].split('/').slice(1).join('/')}`;
-                      } catch(e) {}
+                      // 強制使用正則提取月/日
+                      const match = String(rec.date).match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+                      if (match) {
+                        dateStr = ` ${parseInt(match[2], 10)}/${parseInt(match[3], 10)}`;
+                      } else {
+                        dateStr = ` ${String(rec.date).split(/[ T]/)[0]}`;
+                      }
                     }
                     return <td key={m} colSpan={2} className="border border-black p-0.5 text-blue-800 tracking-tighter break-all text-[10px] sm:text-[11px]">{rec?.inspectorName || ''}<span className="text-gray-500 font-normal">{dateStr}</span></td>;
                   })}
