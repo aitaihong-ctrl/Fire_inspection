@@ -826,7 +826,7 @@
         const safeEqId = (id || '').toString().trim();
         const record = inspections.find(i => (i.equipmentId || '').toString().trim() === safeEqId && Number(i.year) === Number(currentYear) && Number(i.month) === Number(currentMonth));
         if (!record) return { label: '本月未點', color: 'bg-gray-100 text-gray-600', code: 'none' };
-        if (!record.managerName || record.managerName === "") return { label: '待主管確認', color: 'bg-yellow-100 text-yellow-700', code: 'pending' };
+        if (!record.managerName || record.managerName === "") return { label: '待火源管理者確認', color: 'bg-yellow-100 text-yellow-700', code: 'pending' };
         return { label: '已完成', color: 'bg-green-100 text-green-700', code: 'done' };
       };
 
@@ -976,7 +976,7 @@
                     </div>
                   </div>
                   
-                  {/* ⭐ 主管簽核按鈕群 */}
+                  {/* ⭐ 火源管理者簽核按鈕群 */}
                   {status.code === 'pending' && (
                     <div className="flex gap-2 mt-3">
                       <button onClick={(e) => { e.stopPropagation(); onReject(eq.id); }} className="flex-1 border border-red-300 bg-red-50 hover:bg-red-100 text-red-700 py-2.5 rounded-lg text-sm font-bold shadow-sm flex items-center justify-center gap-1 transition-colors">
@@ -1303,7 +1303,7 @@
 
           displayList.forEach(record => {
             const eq = record.equipment;
-            const statusLabel = record.isUninspected ? '尚未點檢' : (!record.managerName ? '待主管確認' : (record.hasAbnormal ? '異常' : '正常'));
+            const statusLabel = record.isUninspected ? '尚未點檢' : (!record.managerName ? '待火源管理者確認' : (record.hasAbnormal ? '異常' : '正常'));
             const row = [
               record.year || filterYear, record.month || filterMonth, record.equipmentId, eq.type || '', eq.extinguisherType || '', eq.factory || '', eq.floor || '', eq.zone || '', eq.dept || '',
               statusLabel, 
@@ -1384,7 +1384,7 @@
                       ) : (
                         <div className="text-right">
                           <div className="text-[10px] text-gray-500 font-bold">巡檢: {record.date || '-'}</div>
-                          {record.managerDate ? (<div className="text-[10px] text-green-700 font-bold mt-0.5">確認: {record.managerDate}</div>) : (<div className="text-[10px] text-yellow-600 font-bold mt-0.5">待主管確認</div>)}
+                          {record.managerDate ? (<div className="text-[10px] text-green-700 font-bold mt-0.5">確認: {record.managerDate}</div>) : (<div className="text-[10px] text-yellow-600 font-bold mt-0.5">待火源管理者確認</div>)}
                         </div>
                       )}
                     </div>
