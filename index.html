@@ -808,7 +808,7 @@
         const safeEqId = (id || '').toString().trim();
         const record = inspections.find(i => (i.equipmentId || '').toString().trim() === safeEqId && Number(i.year) === Number(currentYear) && Number(i.month) === Number(currentMonth));
         if (!record) return { label: '本月未點', color: 'bg-gray-100 text-gray-600', code: 'none' };
-        if (!record.managerName || record.managerName === "") return { label: '待主管確認', color: 'bg-yellow-100 text-yellow-700', code: 'pending' };
+        if (!record.managerName || record.managerName === "") return { label: '待火源管理者確認', color: 'bg-yellow-100 text-yellow-700', code: 'pending' };
         return { label: '已完成', color: 'bg-green-100 text-green-700', code: 'done' };
       };
 
@@ -926,10 +926,10 @@
                       <Icon name="ChevronRight" size={20} className="text-gray-300" />
                     </div>
                   </div>
-                  {/* ⭐ 主管簽核按鈕 */}
+                  {/* ⭐ 火源管理者簽核按鈕 */}
                   {status.code === 'pending' && (
                     <button onClick={(e) => { e.stopPropagation(); onConfirm(eq.id); }} className="w-full mt-3 bg-yellow-500 hover:bg-yellow-600 text-white py-2.5 rounded-lg text-sm font-bold shadow-sm flex items-center justify-center gap-2 transition-colors">
-                      <Icon name="PenTool" size={16} /> 進行主管確認簽核
+                      <Icon name="PenTool" size={16} /> 進行火源管理者確認簽核
                     </button>
                   )}
                 </div>
