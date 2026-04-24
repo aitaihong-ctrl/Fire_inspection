@@ -44,8 +44,13 @@
     const { useState, useEffect, useRef } = React;
 
     // --- 系統設定區 ---
+    // 🚨 請在此填入您的 Google Apps Script 網址
     const GOOGLE_SHEET_API_URL = "https://script.google.com/macros/s/AKfycbwqc1u56dt1tuQiM5FQ_rBkq8zcBXNR0ahd8RYGLarg8O89N98by77eU9k8Hbd6Rjl_/exec"; 
+    
+    // ⭐ 系統後台 API 認證金鑰 (必須與 GAS 中一致)
     const SYSTEM_SECRET_KEY = "TCI_FireSafety_2026_!@#";
+
+    // 🚨 Gemini API 整合 (選用)
     const apiKey = ""; 
 
     // --- API 呼叫 ---
@@ -67,7 +72,7 @@
       } catch (e) { return "未知IP"; }
     };
 
-    // --- 初始化變數 ---
+    // --- 初始化變數 (嚴格淨空前端密碼) ---
     const mockEquipment = [];
     const initialInspections = [];
     const mockUsers = []; 
@@ -121,7 +126,7 @@
         Users: <><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></>,
         Eye: <><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></>,
         EyeOff: <><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></>,
-        Sparkles: <><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/><path d="M4 17v2"/><path d="M5 18H3"/></>,
+        Sparkles: <><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/></>,
         FirefighterHose: <>
           <path d="M5 10a6 6 0 0 1 12 0" />
           <rect x="2" y="10" width="18" height="3" rx="1.5" />
@@ -239,7 +244,6 @@
         if (eq) { setScannedEq(eq); navigateTo('form'); } else { setAlertMsg(`找不到設備編號 [${equipmentId}]！請確認標籤是否為系統列管之設備。`); }
       };
 
-      // 第一階段：巡檢員送出
       const submitInspection = async (record, selectedTypeIfMissing, updatedQuantity) => {
         const now = new Date();
         const safeRecordId = (record.equipmentId || '').toString().trim();
@@ -254,7 +258,7 @@
           date: now.toLocaleString(),
           month: now.getMonth() + 1,
           year: now.getFullYear(),
-          inspectorIp: currentIp, // 寫入巡檢員 IP
+          inspectorIp: currentIp, 
           managerName: '', 
           managerDate: '',
           managerIp: ''
@@ -285,7 +289,6 @@
         }
       };
 
-      // 第二階段：火源管理者確認簽核
       const handleConfirmRecord = async (eqId) => {
         const ip = await getClientIp();
         const confDate = new Date().toLocaleString();
@@ -310,11 +313,9 @@
         }
       };
 
-      // ⭐ 第二階段：火源管理者退回點檢
       const handleRejectRecord = async (eqId) => {
         if (!window.confirm("確定要「不同意」此點檢紀錄嗎？\n退回後該設備將恢復為「未點檢」狀態，巡檢員必須重新掃碼填報。")) return;
         
-        // 更新前端本地狀態：移除該筆紀錄
         setInspections(prev => prev.filter(i => !(i.equipmentId === eqId && Number(i.year) === currentYear && Number(i.month) === currentMonth)));
         
         if (GOOGLE_SHEET_API_URL) {
@@ -336,7 +337,6 @@
 
       return (
         <div className="min-h-screen bg-gray-50 pb-20 font-sans text-gray-800 print:bg-white">
-          
           {alertMsg && (
             <div className="fixed inset-0 z-[200] bg-black/50 flex items-center justify-center p-4">
               <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl animate-in zoom-in-95 text-center">
@@ -381,7 +381,6 @@
               <span className={`text-xs mt-1 font-medium ${activeTab === 'scanner' ? 'text-red-700' : 'text-gray-600'}`}>掃碼</span>
             </button>
             <button onClick={() => navigateTo('records')} className={`flex flex-col items-center p-2 w-1/5 ${activeTab === 'records' ? 'text-red-700' : 'text-gray-400'}`}><Icon name="History" size={24} /><span className="text-xs mt-1 font-medium">明細</span></button>
-            {/* 僅管理員顯示管理後台按鈕 */}
             {currentUser.role === 'admin' ? (
               <button onClick={() => navigateTo('admin')} className={`flex flex-col items-center p-2 w-1/5 ${activeTab === 'admin' ? 'text-red-700' : 'text-gray-400'}`}><Icon name="Settings" size={24} /><span className="text-xs mt-1 font-medium">管理</span></button>
             ) : (<div className="w-1/5"></div>)}
@@ -390,7 +389,6 @@
       );
     }
 
-    // --- 密碼變更畫面 ---
     function ChangePasswordScreen({ user, isForced, apiUrl, onSuccess, onCancel }) {
       const [oldPwd, setOldPwd] = useState('');
       const [newPwd, setNewPwd] = useState('');
@@ -404,7 +402,6 @@
       const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
-
         if (newPwd !== confirmPwd) { setError('兩次輸入的新密碼不一致'); return; }
         if (!isPasswordComplexEnough(newPwd)) { setError('密碼強度不足！必須包含大寫、小寫英文及數字，且長度至少8碼。'); return; }
         if (oldPwd === newPwd) { setError('新密碼不可與舊密碼相同'); return; }
@@ -427,7 +424,6 @@
             <h2 className="text-xl font-black text-center text-gray-800 mb-2">安全設定：變更密碼</h2>
             {isForced ? (<p className="text-xs text-red-600 font-bold text-center mb-6 bg-red-50 p-2 rounded-lg">您的密碼已超過 90 天未變更或為首次登入，基於資安考量請立即更新密碼。</p>) : (<p className="text-sm text-gray-500 text-center mb-6">定期更新密碼以保護系統安全</p>)}
             {error && <div className="bg-red-50 text-red-600 text-xs font-bold p-3 rounded-lg mb-4 text-center border border-red-200">{error}</div>}
-            
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="text-xs font-bold text-gray-500 ml-1">請輸入舊密碼</label>
@@ -450,7 +446,6 @@
                   <button type="button" onClick={() => setShowConfirmPwd(!showConfirmPwd)} className="absolute right-3 top-3.5 text-gray-400 hover:text-gray-600 focus:outline-none"><Icon name={showConfirmPwd ? "EyeOff" : "Eye"} size={20} /></button>
                 </div>
               </div>
-              
               <div className="flex gap-3 pt-4">
                 {!isForced && (<button type="button" onClick={onCancel} disabled={isSubmitting} className="flex-1 py-3 bg-gray-100 text-gray-600 rounded-xl font-bold hover:bg-gray-200 transition-colors">取消</button>)}
                 <button type="submit" disabled={isSubmitting} className={`flex-1 py-3 text-white rounded-xl font-bold shadow-md transition-colors ${isSubmitting ? 'bg-yellow-300' : 'bg-yellow-500 hover:bg-yellow-600'}`}>{isSubmitting ? '驗證中...' : '確認變更'}</button>
@@ -461,7 +456,6 @@
       );
     }
 
-    // --- 登入畫面 (後端強制驗證) ---
     function LoginScreen({ onLogin, apiUrl }) {
       const [account, setAccount] = useState('');
       const [password, setPassword] = useState('');
@@ -486,10 +480,9 @@
         <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl shadow-xl w-full max-w-sm p-8 animate-in zoom-in-95">
             <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6"><Icon name="Lock" size={40} className="text-red-600" /></div>
-            <h2 className="text-2xl font-black text-center text-gray-800 mb-2">廠區消防設備點檢系統登入</h2>
+            <h2 className="text-2xl font-black text-center text-gray-800 mb-2">廠區消防設備管理系統登入</h2>
             <p className="text-sm text-gray-500 text-center mb-8">請輸入您的巡檢帳號與密碼</p>
             {error && <div className="bg-red-50 text-red-600 text-sm font-bold p-3 rounded-lg mb-6 text-center border border-red-200">{error}</div>}
-            
             <form onSubmit={handleLogin} className="space-y-5">
               <div>
                 <label className="text-xs font-bold text-gray-500 ml-1">登入帳號</label>
@@ -509,7 +502,6 @@
       );
     }
 
-    // --- Dashboard ---
     function Dashboard({ total, completed, abnormal, abnormalRecords, equipmentList, currentYear, currentMonth, onScan, onViewList, onBatchPrint }) {
       const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
       const [aiSummary, setAiSummary] = useState('');
@@ -518,8 +510,7 @@
       const handleGenerateAISummary = async () => {
         setIsGeneratingAI(true);
         try {
-          let prompt = `請以專業且簡潔的繁體中文，為 ${currentYear} 年 ${currentMonth} 月的「廠區消防設備點檢」撰寫一份 150 字以內的高階主管總結報告。\n`;
-          prompt += `本月數據：列管總設備數 ${total} 支，已完成巡檢 ${completed} 支，發現異常設備 ${abnormal} 支。\n`;
+          let prompt = `請以專業且簡潔的繁體中文，為 ${currentYear} 年 ${currentMonth} 月的「廠區消防設備點檢」撰寫一份 150 字以內的高階主管總結報告。\n本月數據：列管總設備數 ${total} 支，已完成巡檢 ${completed} 支，發現異常設備 ${abnormal} 支。\n`;
           if (abnormal > 0) {
             prompt += `異常設備明細如下：\n`;
             abnormalRecords.forEach(rec => {
@@ -587,7 +578,6 @@
       );
     }
 
-    // --- Scanner ---
     function Scanner({ onScan, mockEquipment }) {
       const [selectedDept, setSelectedDept] = useState('');
       const [hasCamera, setHasCamera] = useState(true);
@@ -623,7 +613,6 @@
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
             const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
             const code = window.jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: "dontInvert" });
-            
             if (code && code.data) {
               const scannedId = code.data.trim().toUpperCase();
               if (scannedId !== lastScanned) {
@@ -694,7 +683,6 @@
       );
     }
 
-    // --- InspectionForm ---
     function InspectionForm({ equipment, currentUser, onSubmit, onCancel }) {
       const isExtinguisher = equipment.type === '滅火器';
       const questions = isExtinguisher ? EXTINGUISHER_QUESTIONS : HYDRANT_QUESTIONS;
@@ -718,7 +706,6 @@
         try {
           const failedQuestions = questions.filter(q => answers[q.id] === 'abnormal').map(q => q.text);
           const prompt = `我正在對廠區的消防設備進行例行安檢。\n設備種類：「${equipment.type}」\n設備位置：「${equipment.factory} ${equipment.floor} ${equipment.dept} - ${equipment.location}」\n\n目前發現以下檢查項目顯示異常：\n${failedQuestions.map(q => "- " + q).join('\n')}\n\n請根據以上資訊，幫我產生一段專業且簡明的「異常狀況描述與建議修繕說明」，字數約 50-100 字內，我將直接填寫至維修通報單中。`;
-          
           const suggestion = await callGeminiAPI(prompt);
           setRemark(prev => { const trimmedPrev = prev.trim(); return trimmedPrev ? `${trimmedPrev}\n\n【AI 建議】\n${suggestion.trim()}` : suggestion.trim(); });
         } catch (error) { alert(error.message); } 
@@ -811,7 +798,6 @@
       );
     }
 
-    // --- EquipmentList ---
     function EquipmentList({ equipmentList, inspections, currentYear, currentMonth, onDetail, onConfirm, onReject }) {
       const [filter, setFilter] = useState('all'); 
       const [deptFilter, setDeptFilter] = useState('all'); 
@@ -876,39 +862,25 @@
         <div className="space-y-4 animate-in fade-in">
           {showScannerModal && (
             <div className="fixed inset-0 z-[100] bg-gray-50 flex flex-col animate-in slide-in-from-bottom-4">
-              <header className="bg-gray-900 text-white p-4 flex justify-between items-center">
-                <h2 className="font-bold flex items-center gap-2"><Icon name="QrCode" size={20}/> 掃碼搜尋</h2>
-                <button onClick={()=>setShowScannerModal(false)}><Icon name="XCircle" size={24}/></button>
-              </header>
-              <div className="flex-1 overflow-y-auto p-4">
-                <Scanner onScan={(id) => {setSearchTerm(id); setShowScannerModal(false);}} mockEquipment={equipmentList} />
-              </div>
+              <header className="bg-gray-900 text-white p-4 flex justify-between items-center"><h2 className="font-bold flex items-center gap-2"><Icon name="QrCode" size={20}/> 掃碼搜尋</h2><button onClick={()=>setShowScannerModal(false)}><Icon name="XCircle" size={24}/></button></header>
+              <div className="flex-1 overflow-y-auto p-4"><Scanner onScan={(id) => {setSearchTerm(id); setShowScannerModal(false);}} mockEquipment={equipmentList} /></div>
             </div>
           )}
 
           {selectedQrEq && (
             <div className="fixed inset-0 z-[200] bg-black/60 flex items-center justify-center p-4 backdrop-blur-sm" onClick={() => setSelectedQrEq(null)}>
               <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden animate-in zoom-in-95" onClick={e => e.stopPropagation()}>
-                <header className="bg-gray-900 text-white p-4 flex justify-between items-center">
-                  <h2 className="font-bold flex items-center gap-2"><Icon name="QrCode" size={20}/> 設備專屬 QR 標籤</h2>
-                  <button onClick={() => setSelectedQrEq(null)}><Icon name="XCircle" size={24}/></button>
-                </header>
+                <header className="bg-gray-900 text-white p-4 flex justify-between items-center"><h2 className="font-bold flex items-center gap-2"><Icon name="QrCode" size={20}/> 設備專屬 QR 標籤</h2><button onClick={() => setSelectedQrEq(null)}><Icon name="XCircle" size={24}/></button></header>
                 <div className="p-8 bg-white flex flex-col items-center text-center">
                   <div className="border-4 border-black p-6 rounded-xl inline-block w-full">
-                    <h3 className="text-3xl font-black mb-1 tracking-wider">{selectedQrEq.id}</h3>
-                    <p className="text-sm font-bold text-gray-600 mb-4">{selectedQrEq.type}</p>
+                    <h3 className="text-3xl font-black mb-1 tracking-wider">{selectedQrEq.id}</h3><p className="text-sm font-bold text-gray-600 mb-4">{selectedQrEq.type}</p>
                     <img src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${selectedQrEq.id}`} alt={selectedQrEq.id} className="w-48 h-48 mx-auto shadow-sm" crossOrigin="anonymous"/>
-                    <div className="mt-5 text-sm font-bold text-gray-800">{selectedQrEq.factory} - {selectedQrEq.floor}</div>
-                    <div className="text-xs font-bold text-gray-500 mt-1">{selectedQrEq.dept}</div>
+                    <div className="mt-5 text-sm font-bold text-gray-800">{selectedQrEq.factory} - {selectedQrEq.floor}</div><div className="text-xs font-bold text-gray-500 mt-1">{selectedQrEq.dept}</div>
                   </div>
                 </div>
                 <div className="p-4 bg-gray-50 border-t flex gap-3">
-                  <button onClick={() => downloadQrCode(selectedQrEq.id)} className="flex-1 py-3 bg-green-600 text-white rounded-xl font-bold flex justify-center items-center gap-2 hover:bg-green-700 shadow-md transition-colors">
-                    <Icon name="Download" size={18}/> 下載圖片
-                  </button>
-                  <button onClick={() => printQrCode(selectedQrEq)} className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold flex justify-center items-center gap-2 hover:bg-blue-700 shadow-md transition-colors">
-                    <Icon name="Printer" size={18}/> 產生列印
-                  </button>
+                  <button onClick={() => downloadQrCode(selectedQrEq.id)} className="flex-1 py-3 bg-green-600 text-white rounded-xl font-bold flex justify-center items-center gap-2 hover:bg-green-700 shadow-md transition-colors"><Icon name="Download" size={18}/> 下載圖片</button>
+                  <button onClick={() => printQrCode(selectedQrEq)} className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold flex justify-center items-center gap-2 hover:bg-blue-700 shadow-md transition-colors"><Icon name="Printer" size={18}/> 產生列印</button>
                 </div>
               </div>
             </div>
@@ -925,13 +897,10 @@
             </div>
             <div className="flex gap-2 mb-3">
               <select className="flex-1 w-1/2 bg-gray-50 border border-gray-300 rounded-xl py-2 px-3 text-sm outline-none font-medium focus:border-red-500 focus:ring-2 focus:ring-red-100" value={typeFilter} onChange={e => setTypeFilter(e.target.value)}>
-                <option value="all">🔍 所有設備</option>
-                <option value="滅火器">滅火器</option>
-                <option value="消防栓">消防栓</option>
+                <option value="all">🔍 所有設備</option><option value="滅火器">滅火器</option><option value="消防栓">消防栓</option>
               </select>
               <select className="flex-1 w-1/2 bg-gray-50 border border-gray-300 rounded-xl py-2 px-3 text-sm outline-none font-medium focus:border-red-500 focus:ring-2 focus:ring-red-100" value={deptFilter} onChange={e => setDeptFilter(e.target.value)}>
-                <option value="all">🔍 所有單位</option>
-                {departments.map(d => <option key={d} value={d}>{d}</option>)}
+                <option value="all">🔍 所有單位</option>{departments.map(d => <option key={d} value={d}>{d}</option>)}
               </select>
             </div>
             <div className="flex bg-gray-50 p-1 rounded-xl gap-1">
@@ -944,39 +913,23 @@
 
           <div className="space-y-3 pb-8">
             {equipmentList.length === 0 && (
-              <div className="text-center py-12">
-                <Icon name="ClipboardList" size={48} className="mx-auto text-gray-300 mb-3" />
-                <p className="text-gray-500 font-bold">尚無設備資料</p>
-                <p className="text-sm text-gray-400 mt-1">請至管理後台進行 CSV 匯入</p>
-              </div>
+              <div className="text-center py-12"><Icon name="ClipboardList" size={48} className="mx-auto text-gray-300 mb-3" /><p className="text-gray-500 font-bold">尚無設備資料</p><p className="text-sm text-gray-400 mt-1">請至管理後台進行 CSV 匯入</p></div>
             )}
-            
             {filteredList.map((eq, index) => {
               const status = getStatus(eq.id);
               return (
                 <div key={`${eq.id}-${index}`} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 hover:border-red-300 transition-colors">
                   <div className="flex items-center justify-between cursor-pointer" onClick={()=>onDetail(eq.id)}>
                     <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="font-bold text-gray-800">{eq.id}</span>
-                        <span className={`text-xs px-2 py-0.5 rounded-full ${status.color}`}>{status.label}</span>
-                      </div>
-                      <div className="text-sm font-medium text-gray-700">
-                        {eq.type}{eq.extinguisherType ? <span className="ml-1 text-xs text-gray-500 font-normal">({eq.extinguisherType})</span> : ''} - {eq.factory} ({eq.floor})
-                      </div>
-                      <div className="text-xs text-gray-500 mt-1">
-                        {eq.location} - <span className="font-semibold text-gray-700">{eq.dept}</span>
-                      </div>
+                      <div className="flex items-center gap-2 mb-1"><span className="font-bold text-gray-800">{eq.id}</span><span className={`text-xs px-2 py-0.5 rounded-full ${status.color}`}>{status.label}</span></div>
+                      <div className="text-sm font-medium text-gray-700">{eq.type}{eq.extinguisherType ? <span className="ml-1 text-xs text-gray-500 font-normal">({eq.extinguisherType})</span> : ''} - {eq.factory} ({eq.floor})</div>
+                      <div className="text-xs text-gray-500 mt-1">{eq.location} - <span className="font-semibold text-gray-700">{eq.dept}</span></div>
                     </div>
                     <div className="flex items-center gap-3">
-                      <button onClick={(e) => { e.stopPropagation(); setSelectedQrEq(eq); }} className="p-2.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors shadow-sm" title="顯示專屬 QR Code">
-                        <Icon name="QrCode" size={20} />
-                      </button>
+                      <button onClick={(e) => { e.stopPropagation(); setSelectedQrEq(eq); }} className="p-2.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors shadow-sm" title="顯示專屬 QR Code"><Icon name="QrCode" size={20} /></button>
                       <Icon name="ChevronRight" size={20} className="text-gray-300" />
                     </div>
                   </div>
-                  
-                  {/* ⭐ 火源管理者簽核按鈕群 */}
                   {status.code === 'pending' && (
                     <div className="flex gap-2 mt-3">
                       <button onClick={(e) => { e.stopPropagation(); onReject(eq.id); }} className="flex-1 border border-red-300 bg-red-50 hover:bg-red-100 text-red-700 py-2.5 rounded-lg text-sm font-bold shadow-sm flex items-center justify-center gap-1 transition-colors">
@@ -990,16 +943,12 @@
                 </div>
               );
             })}
-            
-            {equipmentList.length > 0 && filteredList.length === 0 && (
-              <div className="text-center py-10 text-gray-400 text-sm">查無符合條件的設備</div>
-            )}
+            {equipmentList.length > 0 && filteredList.length === 0 && <div className="text-center py-10 text-gray-400 text-sm">查無符合條件的設備</div>}
           </div>
         </div>
       );
     }
 
-    // --- 可共用的點檢卡 UI 核心元件 ---
     function InspectionCardUI({ equipment, inspections, reportYear, reportHalf }) {
       const isExtinguisher = equipment.type === '滅火器';
       const questions = isExtinguisher ? EXTINGUISHER_QUESTIONS : HYDRANT_QUESTIONS;
@@ -1105,7 +1054,6 @@
       );
     }
 
-    // --- 單筆 InspectionReport ---
     function InspectionReport({ equipment, inspections, onBack }) {
       const [reportYear, setReportYear] = useState(new Date().getFullYear());
       const [reportHalf, setReportHalf] = useState(new Date().getMonth() + 1 <= 6 ? 'H1' : 'H2');
@@ -1139,14 +1087,12 @@
                 <option value="H1">上半年</option><option value="H2">下半年</option>
               </select>
             </div>
-
             <InspectionCardUI equipment={equipment} inspections={inspections} reportYear={reportYear} reportHalf={reportHalf} />
           </div>
         </div>
       );
     }
 
-    // --- BatchPrintView 批次列印與 PDF 匯出檢視 ---
     function BatchPrintView({ equipmentList, inspections, onBack }) {
       const [reportYear, setReportYear] = useState(new Date().getFullYear());
       const [reportHalf, setReportHalf] = useState(new Date().getMonth() + 1 <= 6 ? 'H1' : 'H2');
@@ -1252,34 +1198,38 @@
     }
 
     // --- RecordList (歷史明細查詢) ---
+    // ⭐ 本次更新亮點：完美補齊「待確認」狀態，並升級為頂部獨立分頁按鈕！
     function RecordList({ equipmentList, inspections }) {
       const currentYear = new Date().getFullYear();
       const currentMonth = new Date().getMonth() + 1;
-      const [queryMode, setQueryMode] = useState('all'); 
+      const [queryMode, setQueryMode] = useState('all'); // 'all', 'uninspected', 'pending', 'done'
       const [filterYear, setFilterYear] = useState(currentYear);
       const [filterMonth, setFilterMonth] = useState(currentMonth);
-      const [filterStatus, setFilterStatus] = useState('all');
+      const [filterStatus, setFilterStatus] = useState('all'); // 'all', 'normal', 'abnormal'
       const [filterType, setFilterType] = useState('all');
 
-      const isUninspectedMode = queryMode === 'uninspected';
-      const isAllMode = queryMode === 'all';
-
       useEffect(() => {
-        if (isUninspectedMode || isAllMode) {
-          if (filterYear === 'all') setFilterYear(currentYear);
-          if (filterMonth === 'all') setFilterMonth(currentMonth);
-        }
-      }, [isUninspectedMode, isAllMode, currentYear, currentMonth, filterYear, filterMonth]);
+        if (filterYear === 'all') setFilterYear(currentYear);
+        if (filterMonth === 'all') setFilterMonth(currentMonth);
+      }, [queryMode, currentYear, currentMonth, filterYear, filterMonth]);
 
+      // 為每筆檢驗紀錄附加對應的設備資訊
       const recordsWithEq = inspections.map(record => ({ ...record, equipment: equipmentList.find(e => e.id === record.equipmentId) || {} }));
 
       const filteredInspected = recordsWithEq.filter(record => {
         if (filterYear !== 'all' && Number(record.year) !== Number(filterYear)) return false;
         if (filterMonth !== 'all' && Number(record.month) !== Number(filterMonth)) return false;
         if (filterType !== 'all' && record.equipment.type !== filterType) return false;
+        
+        // 異常/正常狀態過濾
         if (filterStatus === 'abnormal' && !record.hasAbnormal) return false;
         if (filterStatus === 'normal' && record.hasAbnormal) return false;
-        if (filterStatus === 'pending' && record.managerName) return false;
+
+        // 待確認/已完成 過濾
+        const isPending = !record.managerName || record.managerName === "";
+        if (queryMode === 'pending' && !isPending) return false;
+        if (queryMode === 'done' && isPending) return false;
+
         return true;
       }).map(r => ({ ...r, isUninspected: false }));
 
@@ -1292,8 +1242,18 @@
         hasAbnormal: false, remark: '', inspectorName: '-', managerName: '-', weight: '', date: '-'
       }));
 
-      let displayList = queryMode === 'inspected' ? filteredInspected.sort((a, b) => new Date(b.date) - new Date(a.date)) : 
-                        (queryMode === 'uninspected' ? filteredUninspected : [...filteredInspected, ...filteredUninspected].sort((a, b) => a.equipmentId.localeCompare(b.equipmentId)));
+      let displayList = [];
+      if (queryMode === 'uninspected') {
+        displayList = filteredUninspected;
+      } else if (queryMode === 'pending' || queryMode === 'done') {
+        displayList = filteredInspected.sort((a, b) => new Date(b.date) - new Date(a.date));
+      } else {
+        displayList = [...filteredInspected, ...filteredUninspected].sort((a, b) => {
+           if (a.isUninspected && !b.isUninspected) return -1;
+           if (!a.isUninspected && b.isUninspected) return 1;
+           return a.equipmentId.localeCompare(b.equipmentId);
+        });
+      }
 
       const handleExportCSV = () => {
         if (displayList.length === 0) return;
@@ -1319,8 +1279,13 @@
           const url = URL.createObjectURL(blob);
           const link = document.createElement('a');
           link.href = url;
-          const fileNameMode = queryMode === 'all' ? '全部明細總表' : (queryMode === 'uninspected' ? '未點檢名單' : '已點檢紀錄');
-          link.setAttribute('download', `${fileNameMode}_${filterYear}年${filterMonth !== 'all' ? filterMonth + '月' : '全'}.csv`);
+          
+          let modeName = '全部明細';
+          if (queryMode === 'uninspected') modeName = '未點檢名單';
+          if (queryMode === 'pending') modeName = '待確認名單';
+          if (queryMode === 'done') modeName = '已完成點檢紀錄';
+          
+          link.setAttribute('download', `${modeName}_${filterYear}年${filterMonth !== 'all' ? filterMonth + '月' : '全'}.csv`);
           document.body.appendChild(link);
           link.click();
           document.body.removeChild(link);
@@ -1328,37 +1293,43 @@
         } catch (err) { alert("匯出失敗，若在預覽畫面中請另外開新分頁執行，或直接部署至伺服器。"); }
       };
 
-      const disableExport = displayList.length === 0 || ((isUninspectedMode || isAllMode) && (filterYear === 'all' || filterMonth === 'all'));
+      const disableExport = displayList.length === 0 || (filterYear === 'all' || filterMonth === 'all');
 
       return (
         <div className="space-y-4 animate-in fade-in">
           <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
             <h2 className="font-bold text-gray-800 mb-4 flex items-center gap-2"><Icon name="History" size={20}/> 歷史明細查詢</h2>
             
-            <div className="flex gap-2 mb-4 bg-gray-100 p-1 rounded-lg">
-              <button onClick={() => setQueryMode('all')} className={`flex-1 py-1.5 text-sm font-bold rounded-md transition-colors ${queryMode === 'all' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>全部明細</button>
-              <button onClick={() => setQueryMode('inspected')} className={`flex-1 py-1.5 text-sm font-bold rounded-md transition-colors ${queryMode === 'inspected' ? 'bg-white text-green-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>已點檢</button>
-              <button onClick={() => setQueryMode('uninspected')} className={`flex-1 py-1.5 text-sm font-bold rounded-md transition-colors ${queryMode === 'uninspected' ? 'bg-white text-red-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>未點檢</button>
+            {/* ⭐ 將「待確認」升級為主分頁按鈕，與設備清單的操作邏輯完全一致！ */}
+            <div className="flex bg-gray-50 p-1 rounded-xl gap-1 mb-4 border border-gray-200">
+              <button onClick={()=>setQueryMode('all')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition ${queryMode==='all'?'bg-blue-600 text-white shadow-sm':'text-gray-500 hover:bg-gray-200'}`}>全部</button>
+              <button onClick={()=>setQueryMode('uninspected')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition ${queryMode==='uninspected'?'bg-red-600 text-white shadow-sm':'text-gray-500 hover:bg-gray-200'}`}>未點檢</button>
+              <button onClick={()=>setQueryMode('pending')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition ${queryMode==='pending'?'bg-yellow-500 text-white shadow-sm':'text-gray-500 hover:bg-gray-200'}`}>待確認</button>
+              <button onClick={()=>setQueryMode('done')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition ${queryMode==='done'?'bg-green-600 text-white shadow-sm':'text-gray-500 hover:bg-gray-200'}`}>已完成</button>
             </div>
             
             <div className="grid grid-cols-2 gap-2 mb-3">
-              <select className="border border-gray-300 rounded-lg p-2 text-sm outline-none focus:border-red-500" value={filterYear} onChange={e=>setFilterYear(e.target.value)}>
-                {!isUninspectedMode && !isAllMode && <option value="all">所有年份</option>}<option value={2026}>2026 年</option><option value={2025}>2025 年</option><option value={2024}>2024 年</option>
+              <select className="border border-gray-300 rounded-lg p-2 text-sm outline-none focus:border-blue-500" value={filterYear} onChange={e=>setFilterYear(e.target.value)}>
+                <option value={2026}>2026 年</option><option value={2025}>2025 年</option><option value={2024}>2024 年</option>
               </select>
-              <select className="border border-gray-300 rounded-lg p-2 text-sm outline-none focus:border-red-500" value={filterMonth} onChange={e=>setFilterMonth(e.target.value)}>
-                {!isUninspectedMode && !isAllMode && <option value="all">全年月份</option>}{[1,2,3,4,5,6,7,8,9,10,11,12].map(m => <option key={m} value={m}>{m} 月</option>)}
+              <select className="border border-gray-300 rounded-lg p-2 text-sm outline-none focus:border-blue-500" value={filterMonth} onChange={e=>setFilterMonth(e.target.value)}>
+                {[1,2,3,4,5,6,7,8,9,10,11,12].map(m => <option key={m} value={m}>{m} 月</option>)}
               </select>
-              <select className="border border-gray-300 rounded-lg p-2 text-sm outline-none focus:border-red-500" value={filterType} onChange={e=>setFilterType(e.target.value)}>
+              <select className="border border-gray-300 rounded-lg p-2 text-sm outline-none focus:border-blue-500" value={filterType} onChange={e=>setFilterType(e.target.value)}>
                 <option value="all">所有設備</option><option value="滅火器">滅火器</option><option value="消防栓">消防栓</option>
               </select>
-              {queryMode === 'inspected' ? (
-                <select className="border border-gray-300 rounded-lg p-2 text-sm outline-none focus:border-red-500" value={filterStatus} onChange={e=>setFilterStatus(e.target.value)}>
-                  <option value="all">全狀態</option><option value="normal">僅正常</option><option value="abnormal">僅異常</option><option value="pending">待確認</option>
-                </select>
-              ) : (<div className="border border-gray-200 bg-gray-50 text-gray-500 rounded-lg p-2 text-sm flex items-center justify-center font-bold">{isUninspectedMode ? '尚未點檢' : '混合狀態'}</div>)}
+              {/* 次要篩選器：保留正常與異常過濾，並在未點檢模式下停用 */}
+              <select 
+                className={`border border-gray-300 rounded-lg p-2 text-sm outline-none focus:border-blue-500 ${queryMode === 'uninspected' ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : ''}`} 
+                value={filterStatus} 
+                onChange={e=>setFilterStatus(e.target.value)}
+                disabled={queryMode === 'uninspected'}
+              >
+                <option value="all">正常/異常</option><option value="normal">僅正常</option><option value="abnormal">僅異常</option>
+              </select>
             </div>
             
-            <button onClick={handleExportCSV} disabled={disableExport} className={`w-full py-2.5 rounded-xl font-bold flex justify-center items-center gap-2 transition-colors ${!disableExport ? (isUninspectedMode ? 'bg-red-600 hover:bg-red-700' : (isAllMode ? 'bg-blue-600 hover:bg-blue-700' : 'bg-green-600 hover:bg-green-700')) + ' text-white shadow-md' : 'bg-gray-200 text-gray-400'}`}>
+            <button onClick={handleExportCSV} disabled={disableExport} className={`w-full py-2.5 rounded-xl font-bold flex justify-center items-center gap-2 transition-colors ${!disableExport ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-md' : 'bg-gray-200 text-gray-400'}`}>
               <Icon name="Download" size={18} />匯出 {displayList.length} 筆明細 (Excel)
             </button>
           </div>
@@ -1368,10 +1339,13 @@
             {displayList.map((record, index) => {
               const eq = record.equipment || {};
               const isUninspected = record.isUninspected;
+              const isPending = !isUninspected && (!record.managerName || record.managerName === "");
               
               return (
-                <div key={`${record.equipmentId}-${index}`} className={`bg-white p-4 rounded-xl shadow-sm border ${isUninspected ? 'border-red-100 relative overflow-hidden' : 'border-gray-100'} flex items-start gap-3`}>
+                <div key={`${record.equipmentId}-${index}`} className={`bg-white p-4 rounded-xl shadow-sm border ${isUninspected ? 'border-red-100 relative overflow-hidden' : (isPending ? 'border-yellow-200' : 'border-gray-100')} flex items-start gap-3`}>
                   {isUninspected && <div className="absolute left-0 top-0 bottom-0 w-1 bg-red-400"></div>}
+                  {isPending && <div className="absolute left-0 top-0 bottom-0 w-1 bg-yellow-400"></div>}
+                  
                   <div className={`mt-1 p-2 rounded-full ${isUninspected ? 'bg-red-50 text-red-500' : (record.hasAbnormal ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600')}`}>
                     <Icon name={isUninspected ? "AlertTriangle" : (record.hasAbnormal ? "XCircle" : "CheckCircle2")} size={isUninspected ? 20 : 24} />
                   </div>
@@ -1621,7 +1595,7 @@
                           <label className="text-xs font-bold text-gray-500 ml-1">登入密碼 *</label>
                           <div className="relative mt-1">
                             <input name="password" type={showUserPassword ? "text" : "password"} defaultValue={editingUser?.password || ''} required className="w-full border-2 border-gray-200 rounded-xl p-2.5 outline-none focus:border-purple-500 pr-10 tracking-widest font-bold" placeholder="設定密碼" />
-                            <button type="button" onClick={() => setShowUserPassword(!showUserPassword)} className="absolute right-3 top-3.5 text-gray-400 hover:text-gray-600 focus:outline-none"><Icon name={showPassword ? "EyeOff" : "Eye"} size={18} /></button>
+                            <button type="button" onClick={() => setShowUserPassword(!showUserPassword)} className="absolute right-3 top-3.5 text-gray-400 hover:text-gray-600 focus:outline-none"><Icon name={showUserPassword ? "EyeOff" : "Eye"} size={18} /></button>
                           </div>
                           {!isAddingUser && (<div className="flex items-center gap-1 mt-2"><input type="checkbox" name="resetPassword" id="resetPassword" value="true" defaultChecked /><label htmlFor="resetPassword" className="text-[10px] text-red-600 font-bold">強制下次登入變更密碼</label></div>)}
                         </div>
