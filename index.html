@@ -883,8 +883,8 @@
                 
                 {!r.isUn && (
                   <div className="mt-3 pt-2 border-t border-dashed border-gray-200 text-[11px] text-gray-500 flex flex-col gap-1.5">
-                    <div className="flex justify-between"><span>巡檢: <strong>{r.inspectorName}</strong></span> <span>{r.date}</span></div>
-                    {r.managerName && <div className="flex justify-between text-green-700"><span>確認: <strong>{r.managerName}</strong></span> <span>{r.managerDate}</span></div>}
+                    <div className="flex justify-between"><span>巡檢人: <strong>{r.inspectorName}</strong></span> <span>{r.date}</span></div>
+                    {r.managerName && <div className="flex justify-between text-green-700"><span>火源責任者確認: <strong>{r.managerName}</strong></span> <span>{r.managerDate}</span></div>}
                     {r.weight && <div className="text-blue-600">重量: {r.weight} kg</div>}
                     {r.remark && <div className="text-red-600 bg-red-50 p-1.5 rounded mt-1">異常: {r.remark}</div>}
                   </div>
