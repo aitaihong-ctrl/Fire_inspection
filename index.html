@@ -237,7 +237,6 @@
         }
       };
 
-      // 修正：直接以物件更新狀態，不覆蓋亂碼到試算表
       const handlePasswordChangeSuccess = (updatedUser) => {
         setCurrentUser(updatedUser);
         setDbUsers(dbUsers.map(u => u.account === updatedUser.account ? updatedUser : u));
@@ -761,6 +760,28 @@
           </div>
 
           <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6">
+             <div className="flex items-center justify-between mb-4">
+               <h2 className="text-gray-800 font-bold text-lg flex items-center gap-2">
+                 <Icon name="AlertTriangle" size={22} className="text-red-500" /> 當月待處理異常
+               </h2>
+             </div>
+             {abnormal > 0 ? (
+               <div className="p-4 bg-red-50 border border-red-100 rounded-2xl flex items-start gap-4">
+                 <Icon name="AlertTriangle" className="text-red-500 shrink-0" size={24} />
+                 <div>
+                   <p className="text-base font-bold text-red-800">發現 {abnormal} 件設備異常</p>
+                   <p className="text-sm text-red-600 mt-1 font-medium">請盡速通知相關設備單位處理修繕。</p>
+                 </div>
+               </div>
+             ) : (
+               <div className="text-center py-6 bg-gray-50 rounded-2xl border border-gray-100">
+                 <Icon name="CheckCircle2" size={40} className="mx-auto mb-3 text-green-400" />
+                 <p className="text-sm font-bold text-gray-500">本月目前無異常設備</p>
+               </div>
+             )}
+          </div>
+
+          <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6">
              <div className="flex items-center justify-between mb-3">
                <h2 className="text-gray-800 font-bold text-lg flex items-center gap-2">
                  <Icon name="Printer" size={22} className="text-blue-600" /> 批次報表列印
@@ -1076,9 +1097,9 @@
       const getStatus = (id) => {
         const safeEqId = (id || '').toString().trim();
         const r = inspections.find(i => i.equipmentId === safeEqId && Number(i.year) === Number(currentYear) && Number(i.month) === Number(currentMonth));
-        if (!r) return { label: '未點檢', color: 'bg-gray-100 text-gray-500', code: 'none' };
-        if (!r.managerName) return { label: '待確認', color: 'bg-yellow-100 text-yellow-700', code: 'pending' };
-        return { label: '已完成', color: 'bg-green-100 text-green-700', code: 'done' };
+        if (!r) return { label: '未點檢', color: 'bg-red-100 text-red-700 border border-red-200', code: 'none' };
+        if (!r.managerName) return { label: '待確認', color: 'bg-yellow-100 text-yellow-700 border border-yellow-300', code: 'pending' };
+        return { label: '已完成', color: 'bg-green-100 text-green-700 border border-green-200', code: 'done' };
       };
       
       const filtered = equipmentList.filter(eq => {
@@ -1216,14 +1237,19 @@
               </select>
             </div>
             
-            {/* 狀態過濾按鈕群 */}
-            <div className="flex bg-gray-100 p-1.5 rounded-xl gap-1 border border-gray-200">
-              {[['all','全部'],['none','未點'],['pending','待簽'],['done','完成']].map(([v,l]) => (
+            {/* ⭐ 彩色狀態過濾按鈕群 */}
+            <div className="flex bg-white p-1.5 rounded-xl gap-1 border border-gray-200 shadow-sm">
+              {[
+                { val: 'all', label: '全部', activeClass: 'bg-blue-600 text-white shadow-md', inactiveClass: 'text-blue-600 bg-blue-50 hover:bg-blue-100' },
+                { val: 'none', label: '未點檢', activeClass: 'bg-red-500 text-white shadow-md', inactiveClass: 'text-red-500 bg-red-50 hover:bg-red-100' },
+                { val: 'pending', label: '待確認', activeClass: 'bg-yellow-500 text-white shadow-md', inactiveClass: 'text-yellow-600 bg-yellow-50 hover:bg-yellow-100' },
+                { val: 'done', label: '已完成', activeClass: 'bg-green-500 text-white shadow-md', inactiveClass: 'text-green-600 bg-green-50 hover:bg-green-100' }
+              ].map(opt => (
                 <button 
-                  key={v} onClick={()=>setFilter(v)} 
-                  className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${filter===v ? 'bg-white text-red-600 shadow-sm scale-95' : 'text-gray-500 hover:bg-gray-200'}`}
+                  key={opt.val} onClick={()=>setFilter(opt.val)} 
+                  className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${filter === opt.val ? `${opt.activeClass} scale-[0.98]` : opt.inactiveClass}`}
                 >
-                  {l}
+                  {opt.label}
                 </button>
               ))}
             </div>
@@ -1250,11 +1276,11 @@
                   <div className="flex justify-between items-center cursor-pointer" onClick={()=>onDetail(eq.id)}>
                     <div className="flex-1 pr-4">
                       <div className="flex items-center gap-2 mb-1.5">
-                        <span className="font-black text-gray-800 text-lg tracking-wide">{eq.id}</span>
+                        <span className="font-black text-gray-800 text-lg tracking-wide">{eq.id} <span className="text-sm font-bold text-gray-500 ml-1">({eq.floor})</span></span>
                         <span className={`text-[11px] px-2.5 py-0.5 rounded-md font-bold ${s.color}`}>{s.label}</span>
                       </div>
                       <p className="text-sm font-bold text-gray-700">
-                        {eq.type} {eq.extinguisherType ? <span className="ml-1 font-normal text-gray-500">({eq.extinguisherType})</span> : ''} - {eq.factory}
+                        {eq.type} {eq.extinguisherType ? <span className="ml-1 font-normal text-gray-500">({eq.extinguisherType})</span> : ''}
                       </p>
                       <p className="text-xs text-gray-500 mt-1.5 font-medium flex items-center gap-1">
                          <span className="bg-gray-100 px-1.5 py-0.5 rounded text-[10px]">{eq.dept}</span> {eq.location}
@@ -1338,13 +1364,21 @@
               <Icon name="History" size={22} className="text-blue-600"/> 歷史明細與匯出
             </h2>
             
-            <div className="flex bg-gray-100 p-1.5 rounded-xl gap-1 mb-5 border border-gray-200">
-              {[['all','全部'],['uninspected','未點'],['pending','待簽'],['done','完成']].map(([v,l])=>
+            {/* ⭐ 彩色狀態過濾按鈕群 */}
+            <div className="flex bg-white p-1.5 rounded-xl gap-1 mb-5 border border-gray-200 shadow-sm">
+              {[
+                { val: 'all', label: '全部', activeClass: 'bg-blue-600 text-white shadow-md', inactiveClass: 'text-blue-600 bg-blue-50 hover:bg-blue-100' },
+                { val: 'uninspected', label: '未點檢', activeClass: 'bg-red-500 text-white shadow-md', inactiveClass: 'text-red-500 bg-red-50 hover:bg-red-100' },
+                { val: 'pending', label: '待確認', activeClass: 'bg-yellow-500 text-white shadow-md', inactiveClass: 'text-yellow-600 bg-yellow-50 hover:bg-yellow-100' },
+                { val: 'done', label: '已完成', activeClass: 'bg-green-500 text-white shadow-md', inactiveClass: 'text-green-600 bg-green-50 hover:bg-green-100' }
+              ].map(opt => (
                 <button 
-                  key={v} onClick={()=>setMode(v)} 
-                  className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-colors ${mode===v?'bg-white text-blue-700 shadow-sm':'text-gray-500 hover:bg-gray-200'}`}
-                >{l}</button>
-              )}
+                  key={opt.val} onClick={()=>setMode(opt.val)} 
+                  className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all ${mode === opt.val ? `${opt.activeClass} scale-[0.98]` : opt.inactiveClass}`}
+                >
+                  {opt.label}
+                </button>
+              ))}
             </div>
             
             <div className="grid grid-cols-2 gap-3 mb-5">
@@ -1370,31 +1404,31 @@
           <div className="space-y-4">
             <p className="text-xs text-gray-500 font-bold px-2">查出 {list.length} 筆明細資料</p>
             {list.map((r, i) => (
-              <div key={i} className={`bg-white p-5 rounded-2xl border-l-8 shadow-sm ${r.isUn?'border-red-400':(!r.managerName?'border-yellow-400':(r.hasAbnormal?'border-red-600':'border-green-500'))}`}>
+              <div key={i} className={`bg-white p-5 rounded-2xl border-l-8 shadow-sm hover:shadow-md transition-shadow ${r.isUn?'border-red-400':(!r.managerName?'border-yellow-400':(r.hasAbnormal?'border-red-600':'border-green-500'))}`}>
                 <div className="flex justify-between items-center mb-2">
-                  <span className="font-black text-lg text-gray-800">{r.equipmentId}</span>
-                  <span className={`text-[11px] font-bold px-2 py-1 rounded-md ${r.isUn ? 'bg-red-50 text-red-600' : (!r.managerName ? 'bg-yellow-50 text-yellow-700' : 'bg-green-50 text-green-700')}`}>
+                  <span className="font-black text-lg text-gray-800">{r.equipmentId} <span className="text-sm font-bold text-gray-500 ml-1">({r.eq.floor})</span></span>
+                  <span className={`text-[11px] font-bold px-2.5 py-1 rounded-md border ${r.isUn ? 'bg-red-50 text-red-600 border-red-200' : (!r.managerName ? 'bg-yellow-50 text-yellow-700 border-yellow-300' : 'bg-green-50 text-green-700 border-green-200')}`}>
                     {r.isUn ? '未點檢' : (!r.managerName ? '待確認' : '已完成')}
                   </span>
                 </div>
                 <div className="text-sm font-bold text-gray-700 mb-3">
-                  {r.eq.type} <span className="font-normal text-gray-500">在</span> {r.eq.dept} ({r.eq.location})
+                  {r.eq.type} <span className="font-normal text-gray-500">在</span> {r.eq.factory} - {r.eq.dept} <span className="text-xs text-gray-400">({r.eq.location})</span>
                 </div>
                 
                 {!r.isUn && (
                   <div className="mt-4 pt-3 border-t border-gray-100 text-xs text-gray-600 flex flex-col gap-2">
-                    <div className="flex justify-between items-center bg-gray-50 p-2 rounded">
+                    <div className="flex justify-between items-center bg-gray-50 p-2.5 rounded-lg border border-gray-100">
                       <span>巡檢: <strong className="text-gray-800">{r.inspectorName}</strong> <span className="text-[10px] text-gray-400">({r.inspectorIp})</span></span> 
                       <span className="text-[10px] text-gray-500 font-medium">{r.date}</span>
                     </div>
                     {r.managerName && (
-                      <div className="flex justify-between items-center bg-green-50 p-2 rounded">
+                      <div className="flex justify-between items-center bg-green-50 p-2.5 rounded-lg border border-green-100">
                         <span className="text-green-800">確認: <strong>{r.managerName}</strong> <span className="text-[10px] text-green-600/70">({r.managerIp})</span></span> 
                         <span className="text-[10px] text-green-700 font-medium">{r.managerDate}</span>
                       </div>
                     )}
-                    {r.weight && <div className="text-blue-700 font-bold px-1 mt-1">重量實測: {r.weight} kg</div>}
-                    {r.remark && <div className="text-red-700 bg-red-50 p-2 rounded-lg mt-1 font-bold">⚠️ 異常說明: {r.remark}</div>}
+                    {r.weight && <div className="text-blue-700 font-bold px-2 mt-1">重量實測: {r.weight} kg</div>}
+                    {r.remark && <div className="text-red-700 bg-red-50 p-3 rounded-xl mt-2 font-bold border border-red-100">⚠️ 異常說明: {r.remark}</div>}
                   </div>
                 )}
               </div>
@@ -1628,7 +1662,7 @@
                   {list.map((eq, i) => (
                     <div key={eq.id} className="bg-white p-8 md:p-12 rounded-2xl shadow-xl print:shadow-none print:rounded-none print:p-0 print:m-0 print:break-after-page relative">
                       <div className="absolute top-4 right-4 text-gray-300 text-xs font-bold font-mono print:hidden">Page {i+1} / {list.length}</div>
-                      <InspectionCardUI equipment={eq} inspections={inspections} reportYear={year} reportHalf={half} />
+                      <InspectionCardUI equipment={eq} inspections={inspections} reportYear={year} reportHalf={reportHalf} />
                     </div>
                   ))}
                 </div>
@@ -1913,10 +1947,10 @@
                     <div key={`${eq.id}-${index}`} className="p-4 border border-gray-100 rounded-2xl flex items-center justify-between bg-white hover:border-blue-300 transition-colors shadow-sm">
                       <div>
                         <div className="font-black text-lg flex items-center gap-2 text-gray-800">
-                          {eq.id} 
+                          {eq.id} <span className="text-sm font-bold text-gray-500">({eq.floor})</span>
                           <span className="text-[11px] font-bold bg-gray-100 border border-gray-200 text-gray-600 px-2 py-0.5 rounded-md">{eq.type}</span>
                         </div>
-                        <div className="text-xs font-bold text-gray-500 mt-1.5">{eq.factory} {eq.floor} | <span className="text-blue-700">{eq.dept}</span></div>
+                        <div className="text-xs font-bold text-gray-500 mt-1.5">{eq.factory} | <span className="text-blue-700">{eq.dept}</span></div>
                       </div>
                       <div className="flex gap-2">
                         <button onClick={() => setEditingEq(eq)} className="p-2.5 bg-blue-50 text-blue-700 rounded-xl hover:bg-blue-100 transition-colors shadow-sm"><Icon name="Edit" size={18}/></button>
