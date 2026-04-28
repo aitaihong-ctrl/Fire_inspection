@@ -661,7 +661,7 @@
         <div className="space-y-4">
           {/* ⭐ 這裡完美包含了待確認的篩選按鈕 */}
           <div className="flex bg-gray-100 p-1 rounded-xl gap-1">
-            {[['all','全部'],['none','未點'],['pending','待簽'],['done','完成']].map(([v,l])=>(
+            {[['all','全部'],['none','未點檢'],['pending','待確認'],['done','已完成']].map(([v,l])=>(
               <button key={v} onClick={()=>setFilter(v)} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-colors ${filter===v?'bg-red-600 text-white shadow-sm':'text-gray-500'}`}>{l}</button>
             ))}
           </div>
@@ -739,7 +739,7 @@
             
             {/* ⭐ 歷史明細同樣包含待確認按鈕 */}
             <div className="flex bg-gray-50 p-1 rounded-xl gap-1 mb-4 border">
-              {[['all','全部'],['uninspected','未點'],['pending','待簽'],['done','完成']].map(([v,l])=>
+              {[['all','全部'],['uninspected','未點檢'],['pending','待確認'],['done','已完成']].map(([v,l])=>
                 <button key={v} onClick={()=>setMode(v)} className={`flex-1 py-2 text-xs font-bold rounded-lg transition ${mode===v?'bg-blue-600 text-white shadow-sm':'text-gray-500'}`}>{l}</button>
               )}
             </div>
