@@ -25,7 +25,6 @@
       .print\:bg-white { background-color: white !important; }
       .print\:border-none { border: none !important; }
       .print\:shadow-none { box-shadow: none !important; }
-      .print\:mb-2 { margin-bottom: 0.5rem !important; }
       .print\:border-2 { border-width: 2px !important; }
       .print\:border-black { border-color: #000 !important; }
       .print\:overflow-visible { overflow: visible !important; }
@@ -126,7 +125,7 @@
         Users: <><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></>,
         Eye: <><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></>,
         EyeOff: <><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></>,
-        Sparkles: <><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/></>,
+        Sparkles: <><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/><path d="M4 17v2"/><path d="M5 18H3"/></>,
         FirefighterHose: <>
           <path d="M5 10a6 6 0 0 1 12 0" />
           <rect x="2" y="10" width="18" height="3" rx="1.5" />
@@ -148,15 +147,14 @@
 
     function App() {
       const [currentUser, setCurrentUser] = useState(null);
-      const [dbUsers, setDbUsers] = useState(mockUsers);
+      const [dbUsers, setDbUsers] = useState([]);
       const [activeTab, setActiveTab] = useState('dashboard');
       const [scannedEq, setScannedEq] = useState(null);
       const [selectedEqId, setSelectedEqId] = useState(null); 
-      const [inspections, setInspections] = useState(initialInspections);
-      const [dbEquipment, setDbEquipment] = useState(mockEquipment); 
+      const [inspections, setInspections] = useState([]);
+      const [dbEquipment, setDbEquipment] = useState([]); 
       const [isLoading, setIsLoading] = useState(false);
       const [alertMsg, setAlertMsg] = useState('');
-      
       const [showPasswordChange, setShowPasswordChange] = useState(false);
       const [isForcePasswordChange, setIsForcePasswordChange] = useState(false);
 
@@ -209,75 +207,50 @@
         }
       };
 
-      const handlePasswordChangeSuccess = async (newPassword) => {
-        const updatedUser = { ...currentUser, password: newPassword, lastPasswordChange: new Date().toISOString() };
+      // ⭐ 修正後的成功處理函數，直接用物件更新，避免產生 [object Object] 的錯誤
+      const handlePasswordChangeSuccess = (updatedUser) => {
         setCurrentUser(updatedUser);
         setDbUsers(dbUsers.map(u => u.account === updatedUser.account ? updatedUser : u));
         setShowPasswordChange(false);
         setIsForcePasswordChange(false);
         setAlertMsg('密碼變更成功！');
-
-        if (GOOGLE_SHEET_API_URL) {
-          try {
-            await fetch(GOOGLE_SHEET_API_URL, {
-              method: 'POST',
-              body: JSON.stringify({ action: 'updateUser', secret: SYSTEM_SECRET_KEY, account: updatedUser.account, data: updatedUser })
-            });
-          } catch (err) { console.error("同步密碼變更失敗:", err); }
-        }
-      };
-
-      if (!currentUser) return <LoginScreen onLogin={handleLoginSuccess} apiUrl={GOOGLE_SHEET_API_URL} />;
-      
-      if (showPasswordChange) {
-        return <ChangePasswordScreen user={currentUser} isForced={isForcePasswordChange} apiUrl={GOOGLE_SHEET_API_URL} onSuccess={handlePasswordChangeSuccess} onCancel={() => setShowPasswordChange(false)} />;
-      }
-
-      const navigateTo = (tab, eqId = null) => {
-        if (eqId) setSelectedEqId(eqId);
-        setActiveTab(tab);
-        window.scrollTo(0, 0);
-      };
-
-      const handleScan = (equipmentId) => {
-        const eq = dbEquipment.find(e => (e.id || '').toString().trim() === (equipmentId || '').toString().trim());
-        if (eq) { setScannedEq(eq); navigateTo('form'); } else { setAlertMsg(`找不到設備編號 [${equipmentId}]！請確認標籤是否為系統列管之設備。`); }
       };
 
       const submitInspection = async (record, selectedTypeIfMissing, updatedQuantity) => {
         const now = new Date();
         const safeRecordId = (record.equipmentId || '').toString().trim();
-        const existingIndex = inspections.findIndex(i => (i.equipmentId || '').toString().trim() === safeRecordId && Number(i.year) === now.getFullYear() && Number(i.month) === (now.getMonth() + 1));
-        
         const currentIp = await getClientIp();
-
-        let newInspections = [...inspections];
+        
+        // 修正：正確使用 inspectorIp
         const newRecord = { 
           ...record, 
-          equipmentId: safeRecordId,
-          date: now.toLocaleString(),
-          month: now.getMonth() + 1,
-          year: now.getFullYear(),
+          equipmentId: safeRecordId, 
+          date: now.toLocaleString(), 
+          month: now.getMonth() + 1, 
+          year: now.getFullYear(), 
           inspectorIp: currentIp, 
           managerName: '', 
-          managerDate: '',
-          managerIp: ''
+          managerDate: '', 
+          managerIp: '' 
         };
-
+        
+        const existingIndex = inspections.findIndex(i => i.equipmentId === safeRecordId && Number(i.year) === now.getFullYear() && Number(i.month) === (now.getMonth() + 1));
+        let newInspections = [...inspections];
         if (existingIndex >= 0) newInspections[existingIndex] = newRecord;
         else newInspections.push(newRecord);
+        
         setInspections(newInspections);
 
-        const currentEq = dbEquipment.find(e => (e.id || '').toString().trim() === safeRecordId) || {};
+        const currentEq = dbEquipment.find(e => e.id === safeRecordId) || {};
         const hasQuantityChanged = currentEq.quantity != updatedQuantity;
 
         if (selectedTypeIfMissing || hasQuantityChanged) {
-          setDbEquipment(prev => prev.map(e => (e.id || '').toString().trim() === safeRecordId ? { ...e, extinguisherType: selectedTypeIfMissing || e.extinguisherType, quantity: updatedQuantity } : e));
+          setDbEquipment(prev => prev.map(e => e.id === safeRecordId ? { ...e, extinguisherType: selectedTypeIfMissing || e.extinguisherType, quantity: updatedQuantity } : e));
         }
 
         setScannedEq(null);
-        navigateTo('success');
-        setTimeout(() => navigateTo('dashboard'), 2500);
+        setActiveTab('success');
+        setTimeout(() => setActiveTab('dashboard'), 2500);
 
         if (GOOGLE_SHEET_API_URL) {
           try {
@@ -285,7 +258,7 @@
             if (selectedTypeIfMissing || hasQuantityChanged) {
               await fetch(GOOGLE_SHEET_API_URL, { method: 'POST', body: JSON.stringify({ action: 'updateEquipmentData', secret: SYSTEM_SECRET_KEY, id: safeRecordId, newType: selectedTypeIfMissing, newQuantity: updatedQuantity }) });
             }
-          } catch (err) { console.error("儲存至 Google Sheets 失敗:", err); }
+          } catch (err) { console.error(err); }
         }
       };
 
@@ -335,55 +308,44 @@
 
       const handleLogout = () => { if(window.confirm("確定要登出嗎？")) { setCurrentUser(null); setActiveTab('dashboard'); } };
 
+      if (!currentUser) return <LoginScreen onLogin={handleLoginSuccess} apiUrl={GOOGLE_SHEET_API_URL} />;
+      if (showPasswordChange) return <ChangePasswordScreen user={currentUser} isForced={isForcePasswordChange} apiUrl={GOOGLE_SHEET_API_URL} onSuccess={handlePasswordChangeSuccess} onCancel={() => setShowPasswordChange(false)} />;
+
       return (
         <div className="min-h-screen bg-gray-50 pb-20 font-sans text-gray-800 print:bg-white">
           {alertMsg && (
             <div className="fixed inset-0 z-[200] bg-black/50 flex items-center justify-center p-4">
-              <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl animate-in zoom-in-95 text-center">
+              <div className="bg-white rounded-2xl p-6 max-w-sm w-full text-center shadow-2xl">
                 <Icon name="AlertTriangle" size={48} className="mx-auto text-yellow-500 mb-4" />
-                <p className="text-gray-800 font-bold mb-6 whitespace-pre-line">{alertMsg}</p>
-                <button onClick={() => setAlertMsg('')} className="w-full py-3 bg-red-600 text-white font-bold rounded-xl shadow-md transition-colors hover:bg-red-700">確定</button>
+                <p className="font-bold mb-6 whitespace-pre-line">{alertMsg}</p>
+                <button onClick={() => setAlertMsg('')} className="w-full py-3 bg-red-600 text-white font-bold rounded-xl">確定</button>
               </div>
             </div>
           )}
-
           <header className="bg-red-700 text-white p-4 shadow-md sticky top-0 z-10 flex justify-between items-center print:hidden">
-            <div className="flex items-center gap-2"><Icon name="FirefighterHose" size={26} className="text-yellow-300" /><h1 className="text-xl font-bold tracking-wider">廠區消防設備點檢</h1></div>
+            <div className="flex items-center gap-2"><Icon name="FirefighterHose" size={26} className="text-yellow-300" /><h1 className="text-xl font-bold">廠區消防設備點檢</h1></div>
             <div className="flex items-center gap-3">
-              <div className="text-xs bg-red-800 px-3 py-1.5 rounded-full border border-red-600 flex items-center gap-1 font-medium shadow-sm"><Icon name="User" size={14} /> {currentUser.name}</div>
-              <button onClick={() => setShowPasswordChange(true)} className="text-red-200 hover:text-white transition-colors" title="變更密碼"><Icon name="Key" size={20}/></button>
-              <button onClick={handleLogout} className="text-red-200 hover:text-white transition-colors" title="登出系統"><Icon name="LogOut" size={20}/></button>
+              <div className="text-xs bg-red-800 px-3 py-1.5 rounded-full border border-red-600 flex items-center gap-1"><Icon name="User" size={14} /> {currentUser.name}</div>
+              <button onClick={handleLogout}><Icon name="LogOut" size={20}/></button>
             </div>
           </header>
-
-          <main className={`p-4 mx-auto print:max-w-none print:w-full print:p-0 print:m-0 ${activeTab === 'detail' || activeTab === 'batch-print' ? 'max-w-4xl' : 'max-w-lg'}`}>
-            {activeTab === 'dashboard' && <Dashboard total={totalItems} completed={completedItems} abnormal={abnormalItems} abnormalRecords={abnormalRecords} equipmentList={dbEquipment} currentYear={currentYear} currentMonth={currentMonth} onScan={() => navigateTo('scanner')} onViewList={() => navigateTo('list')} onBatchPrint={() => navigateTo('batch-print')} />}
+          <main className="p-4 mx-auto max-w-lg print:max-w-none">
+            {activeTab === 'dashboard' && <Dashboard total={totalItems} completed={completedItems} abnormal={abnormalItems} abnormalRecords={abnormalRecords} equipmentList={dbEquipment} currentYear={currentYear} currentMonth={currentMonth} onScan={()=>setActiveTab('scanner')} onViewList={()=>setActiveTab('list')} onBatchPrint={()=>setActiveTab('batch-print')} />}
             {activeTab === 'scanner' && <Scanner onScan={handleScan} mockEquipment={dbEquipment} />}
-            {activeTab === 'form' && scannedEq && <InspectionForm equipment={scannedEq} currentUser={currentUser} onSubmit={submitInspection} onCancel={() => navigateTo('dashboard')} />}
-            {activeTab === 'list' && <EquipmentList equipmentList={dbEquipment} inspections={inspections} currentYear={currentYear} currentMonth={currentMonth} onDetail={(id) => navigateTo('detail', id)} onConfirm={handleConfirmRecord} onReject={handleRejectRecord} />}
-            {activeTab === 'detail' && selectedEqId && <InspectionReport equipment={dbEquipment.find(e => (e.id || '').toString().trim() === (selectedEqId || '').toString().trim())} inspections={inspections} onBack={() => navigateTo('list')} />}
+            {activeTab === 'form' && scannedEq && <InspectionForm equipment={scannedEq} currentUser={currentUser} onSubmit={submitInspection} onCancel={() => setActiveTab('dashboard')} />}
+            {activeTab === 'list' && <EquipmentList equipmentList={dbEquipment} inspections={inspections} currentYear={currentYear} currentMonth={currentMonth} onDetail={(id)=>{setSelectedEqId(id);setActiveTab('detail');}} onConfirm={handleConfirmRecord} onReject={handleRejectRecord} />}
+            {activeTab === 'detail' && selectedEqId && <InspectionReport equipment={dbEquipment.find(e => e.id == selectedEqId)} inspections={inspections} onBack={() => setActiveTab('list')} />}
             {activeTab === 'records' && <RecordList equipmentList={dbEquipment} inspections={inspections} />}
-            {activeTab === 'batch-print' && <BatchPrintView equipmentList={dbEquipment} inspections={inspections} onBack={() => navigateTo('dashboard')} />}
+            {activeTab === 'batch-print' && <BatchPrintView equipmentList={dbEquipment} inspections={inspections} onBack={() => setActiveTab('dashboard')} />}
             {activeTab === 'admin' && <EquipmentManager equipmentList={dbEquipment} setDbEquipment={setDbEquipment} users={dbUsers} setDbUsers={setDbUsers} apiUrl={GOOGLE_SHEET_API_URL} setAlertMsg={setAlertMsg} />}
-            {activeTab === 'success' && (
-              <div className="flex flex-col items-center justify-center py-20 text-center animate-in fade-in zoom-in duration-300 print:hidden">
-                <Icon name="CheckCircle2" size={80} className="text-green-500 mb-4 mx-auto" />
-                <h2 className="text-2xl font-bold text-gray-800 mb-2">點檢上傳成功！</h2>
-              </div>
-            )}
+            {activeTab === 'success' && <div className="flex flex-col items-center justify-center py-20"><Icon name="CheckCircle2" size={80} className="text-green-500 mb-4" /><h2 className="text-2xl font-bold">點檢送出成功！</h2></div>}
           </main>
-
-          <nav className="fixed bottom-0 w-full bg-white border-t border-gray-200 flex justify-around p-1 pb-4 shadow-[0_-2px_10px_rgba(0,0,0,0.05)] z-20 print:hidden">
-            <button onClick={() => navigateTo('dashboard')} className={`flex flex-col items-center p-2 w-1/5 ${activeTab === 'dashboard' ? 'text-red-700' : 'text-gray-400'}`}><Icon name="Home" size={24} /><span className="text-xs mt-1 font-medium">首頁</span></button>
-            <button onClick={() => navigateTo('list')} className={`flex flex-col items-center p-2 w-1/5 ${activeTab === 'list' || activeTab === 'detail' ? 'text-red-700' : 'text-gray-400'}`}><Icon name="ClipboardList" size={24} /><span className="text-xs mt-1 font-medium">清單</span></button>
-            <button onClick={() => navigateTo('scanner')} className="flex flex-col items-center p-2 w-1/5 -mt-6">
-              <div className="bg-red-600 text-white p-4 rounded-full shadow-lg border-4 border-white"><Icon name="QrCode" size={26} /></div>
-              <span className={`text-xs mt-1 font-medium ${activeTab === 'scanner' ? 'text-red-700' : 'text-gray-600'}`}>掃碼</span>
-            </button>
-            <button onClick={() => navigateTo('records')} className={`flex flex-col items-center p-2 w-1/5 ${activeTab === 'records' ? 'text-red-700' : 'text-gray-400'}`}><Icon name="History" size={24} /><span className="text-xs mt-1 font-medium">明細</span></button>
-            {currentUser.role === 'admin' ? (
-              <button onClick={() => navigateTo('admin')} className={`flex flex-col items-center p-2 w-1/5 ${activeTab === 'admin' ? 'text-red-700' : 'text-gray-400'}`}><Icon name="Settings" size={24} /><span className="text-xs mt-1 font-medium">管理</span></button>
-            ) : (<div className="w-1/5"></div>)}
+          <nav className="fixed bottom-0 w-full bg-white border-t border-gray-200 flex justify-around p-1 pb-4 shadow-lg z-20 print:hidden">
+            <button onClick={() => setActiveTab('dashboard')} className={`flex flex-col items-center p-2 w-1/5 ${activeTab === 'dashboard' ? 'text-red-700' : 'text-gray-400'}`}><Icon name="Home" size={24} /><span className="text-[10px] mt-1 font-bold">首頁</span></button>
+            <button onClick={() => setActiveTab('list')} className={`flex flex-col items-center p-2 w-1/5 ${activeTab === 'list' ? 'text-red-700' : 'text-gray-400'}`}><Icon name="ClipboardList" size={24} /><span className="text-[10px] mt-1 font-bold">清單</span></button>
+            <button onClick={() => setActiveTab('scanner')} className="flex flex-col items-center p-2 w-1/5 -mt-6"><div className="bg-red-600 text-white p-4 rounded-full border-4 border-white shadow-lg"><Icon name="QrCode" size={26} /></div></button>
+            <button onClick={() => setActiveTab('records')} className={`flex flex-col items-center p-2 w-1/5 ${activeTab === 'records' ? 'text-red-700' : 'text-gray-400'}`}><Icon name="History" size={24} /><span className="text-[10px] mt-1 font-bold">明細</span></button>
+            {currentUser.role === 'admin' && <button onClick={() => setActiveTab('admin')} className={`flex flex-col items-center p-2 w-1/5 ${activeTab === 'admin' ? 'text-red-700' : 'text-gray-400'}`}><Icon name="Settings" size={24} /><span className="text-[10px] mt-1 font-bold">管理</span></button>}
           </nav>
         </div>
       );
@@ -403,52 +365,50 @@
         e.preventDefault();
         setError('');
         if (newPwd !== confirmPwd) { setError('兩次輸入的新密碼不一致'); return; }
-        if (!isPasswordComplexEnough(newPwd)) { setError('密碼強度不足！必須包含大寫、小寫英文及數字，且長度至少8碼。'); return; }
-        if (oldPwd === newPwd) { setError('新密碼不可與舊密碼相同'); return; }
-        if (!apiUrl) { setError('尚未設定雲端資料庫 API，無法變更密碼。'); return; }
-
+        if (!isPasswordComplexEnough(newPwd)) { setError('長度至少8碼，須含大小寫英文及數字。'); return; }
+        if (oldPwd === newPwd) { setError('新舊密碼不可相同'); return; }
+        
         setIsSubmitting(true);
-        try {
-          const response = await fetch(apiUrl, { method: 'POST', body: JSON.stringify({ action: 'changePassword', secret: SYSTEM_SECRET_KEY, account: user.account, oldPassword: oldPwd, newPassword: newPwd }) });
-          const data = await response.json();
-          if (data.status === 'success') { onSuccess({ ...user, password: newPwd, lastPasswordChange: new Date().toISOString() }); } 
-          else { setError(data.message || '變更密碼失敗，請確認舊密碼是否正確。'); }
-        } catch (err) { setError('連線失敗，請檢查網路狀態。'); } 
-        finally { setIsSubmitting(false); }
+        if (apiUrl) {
+          try {
+            const response = await fetch(apiUrl, { method: 'POST', body: JSON.stringify({ action: 'changePassword', secret: SYSTEM_SECRET_KEY, account: user.account, oldPassword: oldPwd, newPassword: newPwd }) });
+            const data = await response.json();
+            if (data.status === 'success') { 
+              onSuccess({ ...user, password: newPwd, lastPasswordChange: new Date().toISOString() }); 
+            } else { 
+              setError(data.message || '變更失敗'); 
+            }
+          } catch (err) { 
+            setError('連線失敗'); 
+          }
+        } else {
+          // 本機模式測試
+          onSuccess({ ...user, password: newPwd, lastPasswordChange: new Date().toISOString() }); 
+        }
+        setIsSubmitting(false);
       };
 
       return (
         <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl shadow-xl w-full max-w-sm p-8 animate-in zoom-in-95 border-t-8 border-yellow-500">
-            <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4"><Icon name="Key" size={32} className="text-yellow-600" /></div>
-            <h2 className="text-xl font-black text-center text-gray-800 mb-2">安全設定：變更密碼</h2>
-            {isForced ? (<p className="text-xs text-red-600 font-bold text-center mb-6 bg-red-50 p-2 rounded-lg">您的密碼已超過 90 天未變更或為首次登入，基於資安考量請立即更新密碼。</p>) : (<p className="text-sm text-gray-500 text-center mb-6">定期更新密碼以保護系統安全</p>)}
-            {error && <div className="bg-red-50 text-red-600 text-xs font-bold p-3 rounded-lg mb-4 text-center border border-red-200">{error}</div>}
+          <div className="bg-white rounded-3xl shadow-xl w-full max-w-sm p-8 border-t-8 border-yellow-500 animate-in zoom-in-95">
+            <h2 className="text-xl font-black text-center mb-6">安全設定：變更密碼</h2>
+            {error && <div className="bg-red-50 text-red-600 text-xs font-bold p-3 rounded-lg mb-4 text-center">{error}</div>}
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="text-xs font-bold text-gray-500 ml-1">請輸入舊密碼</label>
-                <div className="relative mt-1">
-                  <input type={showOldPwd ? "text" : "password"} required value={oldPwd} onChange={e=>setOldPwd(e.target.value)} className="w-full border-2 border-gray-200 rounded-xl p-3 outline-none focus:border-yellow-500 transition-colors font-bold pr-10 tracking-widest" placeholder="••••••••" />
-                  <button type="button" onClick={() => setShowOldPwd(!showOldPwd)} className="absolute right-3 top-3.5 text-gray-400 hover:text-gray-600 focus:outline-none"><Icon name={showOldPwd ? "EyeOff" : "Eye"} size={20} /></button>
-                </div>
+              <div><label className="text-xs font-bold text-gray-500 ml-1">舊密碼</label>
+                <div className="relative"><input type={showOldPwd ? "text" : "password"} required value={oldPwd} onChange={e=>setOldPwd(e.target.value)} className="w-full border-2 p-3 rounded-xl outline-none focus:border-yellow-500" />
+                <button type="button" onClick={()=>setShowOldPwd(!showOldPwd)} className="absolute right-3 top-3.5 text-gray-400"><Icon name={showOldPwd?"EyeOff":"Eye"} size={20}/></button></div>
               </div>
-              <div className="pt-2 border-t">
-                <label className="text-xs font-bold text-gray-500 ml-1">設定新密碼</label>
-                <div className="relative mt-1">
-                  <input type={showNewPwd ? "text" : "password"} required value={newPwd} onChange={e=>setNewPwd(e.target.value)} className="w-full border-2 border-gray-200 rounded-xl p-3 outline-none focus:border-yellow-500 transition-colors font-bold pr-10 tracking-widest" placeholder="大小寫英文+數字，至少8碼" />
-                  <button type="button" onClick={() => setShowNewPwd(!showNewPwd)} className="absolute right-3 top-3.5 text-gray-400 hover:text-gray-600 focus:outline-none"><Icon name={showNewPwd ? "EyeOff" : "Eye"} size={20} /></button>
-                </div>
+              <div><label className="text-xs font-bold text-gray-500 ml-1">新密碼</label>
+                <div className="relative"><input type={showNewPwd ? "text" : "password"} required value={newPwd} onChange={e=>setNewPwd(e.target.value)} className="w-full border-2 p-3 rounded-xl outline-none focus:border-yellow-500" />
+                <button type="button" onClick={()=>setShowNewPwd(!showNewPwd)} className="absolute right-3 top-3.5 text-gray-400"><Icon name={showNewPwd?"EyeOff":"Eye"} size={20}/></button></div>
               </div>
-              <div>
-                <label className="text-xs font-bold text-gray-500 ml-1">再次確認新密碼</label>
-                <div className="relative mt-1">
-                  <input type={showConfirmPwd ? "text" : "password"} required value={confirmPwd} onChange={e=>setConfirmPwd(e.target.value)} className="w-full border-2 border-gray-200 rounded-xl p-3 outline-none focus:border-yellow-500 transition-colors font-bold pr-10 tracking-widest" placeholder="••••••••" />
-                  <button type="button" onClick={() => setShowConfirmPwd(!showConfirmPwd)} className="absolute right-3 top-3.5 text-gray-400 hover:text-gray-600 focus:outline-none"><Icon name={showConfirmPwd ? "EyeOff" : "Eye"} size={20} /></button>
-                </div>
+              <div><label className="text-xs font-bold text-gray-500 ml-1">確認新密碼</label>
+                <div className="relative"><input type={showConfirmPwd ? "text" : "password"} required value={confirmPwd} onChange={e=>setConfirmPwd(e.target.value)} className="w-full border-2 p-3 rounded-xl outline-none focus:border-yellow-500" />
+                <button type="button" onClick={()=>setShowConfirmPwd(!showConfirmPwd)} className="absolute right-3 top-3.5 text-gray-400"><Icon name={showConfirmPwd?"EyeOff":"Eye"} size={20}/></button></div>
               </div>
               <div className="flex gap-3 pt-4">
-                {!isForced && (<button type="button" onClick={onCancel} disabled={isSubmitting} className="flex-1 py-3 bg-gray-100 text-gray-600 rounded-xl font-bold hover:bg-gray-200 transition-colors">取消</button>)}
-                <button type="submit" disabled={isSubmitting} className={`flex-1 py-3 text-white rounded-xl font-bold shadow-md transition-colors ${isSubmitting ? 'bg-yellow-300' : 'bg-yellow-500 hover:bg-yellow-600'}`}>{isSubmitting ? '驗證中...' : '確認變更'}</button>
+                {!isForced && <button type="button" onClick={onCancel} className="flex-1 py-3 bg-gray-100 rounded-xl font-bold">取消</button>}
+                <button type="submit" disabled={isSubmitting} className="flex-1 py-3 bg-yellow-500 text-white rounded-xl font-bold">{isSubmitting?'中...':'確認變更'}</button>
               </div>
             </form>
           </div>
@@ -466,36 +426,28 @@
       const handleLogin = async (e) => {
         e.preventDefault();
         setError('');
-        if (!apiUrl) { setError('系統尚未連線至資料庫，請先設定 API 網址！'); return; }
+        if (!apiUrl) { setError('請先設定 API 網址！'); return; }
         setIsLoggingIn(true);
         try {
           const res = await fetch(apiUrl, { method: 'POST', body: JSON.stringify({ action: 'login', secret: SYSTEM_SECRET_KEY, account: account.trim(), password: password }) });
           const data = await res.json();
           if (data.status === 'success') onLogin(data.user); else setError(data.message || '帳號或密碼錯誤');
-        } catch (err) { setError('系統連線失敗，請檢查網路狀態'); } 
+        } catch (err) { setError('連線失敗，請檢查網路狀態'); } 
         finally { setIsLoggingIn(false); }
       };
 
       return (
         <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl shadow-xl w-full max-w-sm p-8 animate-in zoom-in-95">
-            <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6"><Icon name="Lock" size={40} className="text-red-600" /></div>
-            <h2 className="text-2xl font-black text-center text-gray-800 mb-2">廠區消防設備點檢系統登入</h2>
-            <p className="text-sm text-gray-500 text-center mb-8">請輸入您的巡檢帳號與密碼</p>
-            {error && <div className="bg-red-50 text-red-600 text-sm font-bold p-3 rounded-lg mb-6 text-center border border-red-200">{error}</div>}
+          <div className="bg-white rounded-3xl shadow-xl w-full max-w-sm p-8">
+            <h2 className="text-2xl font-black text-center text-gray-800 mb-8">廠區消防設備點檢系統登入</h2>
+            {error && <div className="bg-red-50 text-red-600 text-sm font-bold p-3 rounded-lg mb-6 text-center">{error}</div>}
             <form onSubmit={handleLogin} className="space-y-5">
-              <div>
-                <label className="text-xs font-bold text-gray-500 ml-1">登入帳號</label>
-                <input type="text" required value={account} onChange={e=>setAccount(e.target.value)} className="w-full border-2 border-gray-200 rounded-xl p-3 mt-1 outline-none focus:border-red-500 transition-colors font-semibold" placeholder="請輸入帳號" />
+              <input type="text" required placeholder="帳號" value={account} onChange={e=>setAccount(e.target.value)} className="w-full border-2 p-3 rounded-xl outline-none focus:border-red-500" />
+              <div className="relative">
+                <input type={showPassword ? "text" : "password"} required placeholder="密碼" value={password} onChange={e=>setPassword(e.target.value)} className="w-full border-2 p-3 rounded-xl outline-none focus:border-red-500" />
+                <button type="button" onClick={()=>setShowPassword(!showPassword)} className="absolute right-3 top-3.5 text-gray-400"><Icon name={showPassword?"EyeOff":"Eye"} size={20}/></button>
               </div>
-              <div>
-                <label className="text-xs font-bold text-gray-500 ml-1">登入密碼</label>
-                <div className="relative mt-1">
-                  <input type={showPassword ? "text" : "password"} required value={password} onChange={e=>setPassword(e.target.value)} className="w-full border-2 border-gray-200 rounded-xl p-3 outline-none focus:border-red-500 transition-colors font-bold pr-10 tracking-widest" placeholder="••••••••" />
-                  <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-3.5 text-gray-400 hover:text-gray-600 focus:outline-none"><Icon name={showPassword ? "EyeOff" : "Eye"} size={20} /></button>
-                </div>
-              </div>
-              <button type="submit" disabled={isLoggingIn} className={`w-full py-3.5 text-white rounded-xl font-bold shadow-md transition-colors mt-4 text-lg ${isLoggingIn ? 'bg-red-400' : 'bg-red-600 hover:bg-red-700'}`}>{isLoggingIn ? '驗證中...' : '登入系統'}</button>
+              <button type="submit" disabled={isLoggingIn} className="w-full py-3.5 bg-red-600 text-white rounded-xl font-bold shadow-md">{isLoggingIn?'登入中...':'登入系統'}</button>
             </form>
           </div>
         </div>
@@ -528,584 +480,386 @@
       };
 
       return (
-        <div className="space-y-6 animate-in fade-in">
-          {total === 0 && (
-            <div className="bg-yellow-50 p-4 rounded-xl border border-yellow-200 shadow-sm animate-in fade-in">
-              <h3 className="text-yellow-800 font-bold flex items-center gap-2 mb-1"><Icon name="AlertTriangle" size={20}/> 系統目前無任何設備資料</h3>
-              <p className="text-sm text-yellow-700 leading-relaxed">請聯絡管理員至後台「批次匯入 CSV」真實設備清單！</p>
+        <div className="space-y-6">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+            <h2 className="text-gray-500 text-sm font-semibold mb-4 flex items-center gap-2"><Icon name="Calendar" size={18} /> 當月進度 ({currentMonth}月)</h2>
+            <div className="flex items-center justify-between">
+              <div className="relative w-24 h-24 flex items-center justify-center">
+                <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36"><path strokeDasharray="100, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#f3f4f6" strokeWidth="3" /><path strokeDasharray={`${percent}, 100`} d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#dc2626" strokeWidth="3" strokeLinecap="round" className="transition-all duration-1000" /></svg>
+                <div className="absolute font-bold text-2xl">{percent}%</div>
+              </div>
+              <div className="flex-1 ml-6 space-y-2">
+                <div className="flex justify-between text-sm"><span>列管總數</span><span className="font-bold">{total}</span></div>
+                <div className="flex justify-between text-sm"><span>已完成</span><span className="font-bold text-green-600">{completed}</span></div>
+                <div className="flex justify-between text-sm"><span>異常數</span><span className="font-bold text-red-600">{abnormal}</span></div>
+              </div>
             </div>
-          )}
-
+          </div>
+          
           <div className="bg-white rounded-2xl shadow-sm border border-purple-100 p-5 relative overflow-hidden">
              <div className="flex items-center justify-between mb-3"><h2 className="text-purple-800 font-bold flex items-center gap-2"><Icon name="Sparkles" size={20} className="text-purple-500" /> AI 安檢總結報告</h2></div>
              {aiSummary ? (
                <div className="bg-purple-50 p-4 rounded-xl border border-purple-100 text-sm text-purple-900 leading-relaxed whitespace-pre-line relative">
                  <div className="absolute top-2 right-2 opacity-10"><Icon name="Sparkles" size={40}/></div>{aiSummary}
                </div>
-             ) : (<p className="text-xs text-gray-500 mb-4">透過 Gemini 大語言模型，一鍵自動分析本月點檢數據與異常紀錄，產生高階主管專用的決策摘要。</p>)}
+             ) : (<p className="text-xs text-gray-500 mb-4">透過 Gemini 模型，一鍵自動分析本月點檢數據與異常紀錄，產生高階主管決策摘要。</p>)}
              <button onClick={handleGenerateAISummary} disabled={isGeneratingAI} className={`w-full py-2.5 rounded-xl text-sm font-bold flex justify-center items-center gap-2 transition-colors mt-2 shadow-sm ${isGeneratingAI ? 'ai-bg-shimmer text-purple-700 cursor-wait' : 'bg-purple-100 text-purple-700 hover:bg-purple-200'}`}>
-               {isGeneratingAI ? '✨ AI 正在分析資料並生成報告...' : '✨ 產生本月安檢總結報告'}
+               {isGeneratingAI ? '✨ 分析資料並生成報告中...' : '✨ 產生安檢總結報告'}
              </button>
           </div>
 
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-            <h2 className="text-gray-500 text-sm font-semibold mb-4 flex items-center gap-2"><Icon name="Calendar" size={18} /> 當月點檢進度 ({currentYear}年 {currentMonth}月)</h2>
-            <div className="flex items-center justify-between">
-              <div className="relative w-24 h-24 flex items-center justify-center">
-                <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
-                  <path strokeDasharray="100, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#f3f4f6" strokeWidth="3" />
-                  <path strokeDasharray={`${percent}, 100`} d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#dc2626" strokeWidth="3" strokeLinecap="round" className="transition-all duration-1000 ease-out" />
-                </svg>
-                <div className="absolute flex flex-col items-center"><span className="text-2xl font-bold text-gray-800">{percent}%</span></div>
-              </div>
-              <div className="flex-1 ml-6 space-y-3">
-                <div className="flex justify-between items-center"><span className="text-sm text-gray-500">系統列管總數</span><span className="font-semibold text-gray-800">{total} 支</span></div>
-                <div className="flex justify-between items-center"><span className="text-sm text-gray-500">本月已完成</span><span className="font-semibold text-green-600">{completed} 支</span></div>
-                <div className="flex justify-between items-center"><span className="text-sm text-gray-500">本月提報異常</span><span className="font-semibold text-red-600">{abnormal} 支</span></div>
-              </div>
-            </div>
-          </div>
           <div className="grid grid-cols-2 gap-4">
-            <button onClick={onScan} className="bg-red-50 text-red-700 p-4 rounded-2xl flex flex-col items-center justify-center border border-red-100 shadow-sm hover:bg-red-100 transition"><Icon name="QrCode" size={32} className="mb-2" /><span className="font-semibold">現場掃碼</span></button>
-            <button onClick={onViewList} className="bg-blue-50 text-blue-700 p-4 rounded-2xl flex flex-col items-center justify-center border border-blue-100 shadow-sm hover:bg-blue-100 transition"><Icon name="FileText" size={32} className="mb-2" /><span className="font-semibold">設備清單</span></button>
+            <button onClick={onScan} className="bg-red-50 text-red-700 p-4 rounded-2xl flex flex-col items-center border border-red-100 shadow-sm"><Icon name="QrCode" size={32} className="mb-2"/><span className="font-bold">掃碼</span></button>
+            <button onClick={onViewList} className="bg-blue-50 text-blue-700 p-4 rounded-2xl flex flex-col items-center border border-blue-100 shadow-sm"><Icon name="ClipboardList" size={32} className="mb-2"/><span className="font-bold">清單</span></button>
           </div>
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-             <div className="flex items-center justify-between mb-3"><h2 className="text-gray-800 font-semibold flex items-center gap-2"><Icon name="Printer" size={18} /> 批次報表列印</h2></div>
-             <p className="text-xs text-gray-500 mb-3">一鍵產出全廠區指定年度與半年度的所有設備點檢卡，支援直接列印或匯出成 PDF 歸檔。</p>
-             <button onClick={onBatchPrint} className="w-full bg-blue-600 text-white py-2.5 rounded-xl text-sm font-bold flex justify-center items-center gap-2 hover:bg-blue-700 transition-colors shadow-sm"><Icon name="Printer" size={18} /> 進入批次列印</button>
-          </div>
+          <button onClick={onBatchPrint} className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold flex justify-center items-center gap-2 shadow-md"><Icon name="Printer" size={20}/> 批次報表列印</button>
         </div>
       );
     }
 
     function Scanner({ onScan, mockEquipment }) {
       const [selectedDept, setSelectedDept] = useState('');
-      const [hasCamera, setHasCamera] = useState(true);
       const videoRef = useRef(null);
       const canvasRef = useRef(null);
-      
       const departments = [...new Set(mockEquipment.map(eq => (eq.dept || '').toString().trim()))].filter(Boolean);
-      const filteredEquipment = selectedDept ? mockEquipment.filter(eq => (eq.dept || '').toString().trim() === selectedDept) : [];
-
+      
       useEffect(() => {
-        let animationFrameId;
-        let stream = null;
-        let lastScanned = null; 
-        
-        const startCamera = async () => {
-          try {
-            stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
-            if (videoRef.current) {
-              videoRef.current.srcObject = stream;
-              videoRef.current.setAttribute("playsinline", true);
-              videoRef.current.play();
-              requestAnimationFrame(tick);
-            }
-          } catch (err) { setHasCamera(false); }
+        let stream = null; let ani = null;
+        const start = async () => {
+          try { stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+            if (videoRef.current) { videoRef.current.srcObject = stream; videoRef.current.play(); ani = requestAnimationFrame(tick); }
+          } catch (e) {}
         };
-
         const tick = () => {
-          const video = videoRef.current;
-          const canvas = canvasRef.current;
-          if (video && video.readyState === video.HAVE_ENOUGH_DATA && window.jsQR && canvas) {
-            canvas.height = video.videoHeight; canvas.width = video.videoWidth;
-            const ctx = canvas.getContext("2d");
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-            const code = window.jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: "dontInvert" });
-            if (code && code.data) {
-              const scannedId = code.data.trim().toUpperCase();
-              if (scannedId !== lastScanned) {
-                lastScanned = scannedId;
-                onScan(scannedId);
-                setTimeout(() => { lastScanned = null; }, 3000);
-              }
-            }
+          if (videoRef.current && videoRef.current.readyState === videoRef.current.HAVE_ENOUGH_DATA && window.jsQR) {
+            canvasRef.current.height = videoRef.current.videoHeight; canvasRef.current.width = videoRef.current.videoWidth;
+            const ctx = canvasRef.current.getContext("2d"); ctx.drawImage(videoRef.current, 0, 0, canvasRef.current.width, canvasRef.current.height);
+            const img = ctx.getImageData(0, 0, canvasRef.current.width, canvasRef.current.height);
+            const code = window.jsQR(img.data, img.width, img.height);
+            if (code) { onScan(code.data.trim().toUpperCase()); return; }
           }
-          animationFrameId = requestAnimationFrame(tick);
+          ani = requestAnimationFrame(tick);
         };
-        
-        if (!window.jsQR) {
-          const script = document.createElement('script');
-          script.src = "https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js";
-          script.onload = startCamera;
-          document.body.appendChild(script);
-        } else { startCamera(); }
-
-        return () => {
-          if (animationFrameId) cancelAnimationFrame(animationFrameId);
-          if (stream) stream.getTracks().forEach(track => track.stop());
-        };
+        start(); 
+        return () => { if(stream) stream.getTracks().forEach(t=>t.stop()); cancelAnimationFrame(ani); };
       }, [onScan]);
 
       return (
-        <div className="flex flex-col items-center h-full w-full animate-in fade-in">
-          <div className="w-full bg-black rounded-2xl overflow-hidden shadow-2xl relative" style={{ height: '350px' }}>
-            {hasCamera ? (
-              <>
-                <video ref={videoRef} className="absolute inset-0 w-full h-full object-cover" />
-                <canvas ref={canvasRef} className="hidden" />
-                <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40">
-                  <div className="w-56 h-56 border-2 border-green-500 rounded-2xl relative shadow-[0_0_0_9999px_rgba(0,0,0,0.4)]">
-                    <div className="absolute w-full h-1 bg-green-500 top-0 animate-[scan_2s_ease-in-out_infinite]" />
-                  </div>
-                  <p className="text-white mt-6 font-medium text-sm">請將 QR Code 對準框內</p>
-                </div>
-              </>
-            ) : (
-              <div className="absolute inset-0 bg-gray-900 flex flex-col items-center justify-center p-6">
-                <Icon name="Camera" size={48} className="text-gray-600 mb-4" />
-                <p className="text-gray-400 font-medium">無法啟用相機 (請確認權限或是否為HTTPS)</p>
-              </div>
-            )}
+        <div className="flex flex-col items-center">
+          <div className="w-full h-80 bg-black rounded-2xl overflow-hidden relative shadow-2xl">
+            <video ref={videoRef} className="absolute inset-0 w-full h-full object-cover" playsInline />
+            <canvas ref={canvasRef} className="hidden" />
+            <div className="absolute inset-0 flex items-center justify-center"><div className="w-60 h-60 border-2 border-green-500 rounded-2xl shadow-[0_0_0_999px_rgba(0,0,0,0.5)]"></div></div>
           </div>
-          <style>{`@keyframes scan { 0% { top: 0; opacity: 0; } 10% { opacity: 1; } 90% { opacity: 1; } 100% { top: 100%; opacity: 0; } }`}</style>
-          
-          <div className="mt-6 w-full bg-white p-5 rounded-2xl shadow-sm border border-gray-200">
-            <h3 className="text-sm font-semibold text-gray-500 mb-3">無相機時手動選擇</h3>
-            {departments.length === 0 ? (
-               <p className="text-sm text-red-500 font-bold bg-red-50 p-2 rounded">尚無任何設備資料，請至管理後台匯入。</p>
-            ) : (
-              <>
-                <select className="w-full mb-3 border border-gray-300 rounded-xl p-2 outline-none focus:border-red-400" value={selectedDept} onChange={(e) => setSelectedDept(e.target.value)}>
-                  <option value="">-- 選擇責任單位 --</option>
-                  {departments.map(d => <option key={d} value={d}>{d}</option>)}
-                </select>
-                <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto">
-                  {filteredEquipment.map((eq, idx) => (
-                    <button key={`${eq.id}-${idx}`} onClick={() => onScan(eq.id)} className="px-3 py-2 bg-gray-100 border rounded-lg text-sm hover:bg-red-50 hover:text-red-700">{eq.id} ({eq.type})</button>
-                  ))}
-                </div>
-              </>
-            )}
+          <div className="mt-6 w-full bg-white p-4 rounded-xl border">
+            <select className="w-full p-2 border rounded-lg" value={selectedDept} onChange={e=>setSelectedDept(e.target.value)}>
+              <option value="">-- 手動選擇單位 --</option>
+              {departments.map(d=><option key={d} value={d}>{d}</option>)}
+            </select>
+            <div className="flex flex-wrap gap-2 mt-3 max-h-32 overflow-y-auto">
+              {mockEquipment.filter(e=>!selectedDept||e.dept===selectedDept).map(e=><button key={e.id} onClick={()=>onScan(e.id)} className="px-2 py-1 bg-gray-100 border rounded text-xs hover:bg-gray-200">{e.id}</button>)}
+            </div>
           </div>
         </div>
       );
     }
 
     function InspectionForm({ equipment, currentUser, onSubmit, onCancel }) {
-      const isExtinguisher = equipment.type === '滅火器';
-      const questions = isExtinguisher ? EXTINGUISHER_QUESTIONS : HYDRANT_QUESTIONS;
-      
+      const isExt = equipment.type === '滅火器';
+      const questions = isExt ? EXTINGUISHER_QUESTIONS : HYDRANT_QUESTIONS;
       const [tempType, setTempType] = useState('');
-      const needsTypeSelection = isExtinguisher && !equipment.extinguisherType;
+      const needsType = isExt && !equipment.extinguisherType;
       const finalType = equipment.extinguisherType || tempType;
-      const needsWeight = isExtinguisher && finalType !== '乾粉' && finalType !== '';
-
+      
       const [answers, setAnswers] = useState(questions.reduce((acc, q) => ({ ...acc, [q.id]: 'pending' }), {}));
       const [remark, setRemark] = useState('');
       const [weight, setWeight] = useState('');
       const [quantity, setQuantity] = useState(equipment.quantity || 1);
-      const [isGeneratingAI, setIsGeneratingAI] = useState(false);
-
-      const hasAbnormal = Object.values(answers).includes('abnormal');
-      const isComplete = Object.values(answers).every(v => v !== 'pending') && (!needsWeight || weight !== '') && (!needsTypeSelection || tempType !== '');
-
-      const handleAIAssist = async () => {
-        setIsGeneratingAI(true);
-        try {
-          const failedQuestions = questions.filter(q => answers[q.id] === 'abnormal').map(q => q.text);
-          const prompt = `我正在對廠區的消防設備進行例行安檢。\n設備種類：「${equipment.type}」\n設備位置：「${equipment.factory} ${equipment.floor} ${equipment.dept} - ${equipment.location}」\n\n目前發現以下檢查項目顯示異常：\n${failedQuestions.map(q => "- " + q).join('\n')}\n\n請根據以上資訊，幫我產生一段專業且簡明的「異常狀況描述與建議修繕說明」，字數約 50-100 字內，我將直接填寫至維修通報單中。`;
-          const suggestion = await callGeminiAPI(prompt);
-          setRemark(prev => { const trimmedPrev = prev.trim(); return trimmedPrev ? `${trimmedPrev}\n\n【AI 建議】\n${suggestion.trim()}` : suggestion.trim(); });
-        } catch (error) { alert(error.message); } 
-        finally { setIsGeneratingAI(false); }
-      };
-
-      const handleSubmit = () => {
-        onSubmit({ equipmentId: equipment.id, answers, weight: needsWeight ? weight : undefined, hasAbnormal, remark, inspectorName: currentUser.name }, needsTypeSelection ? tempType : null, quantity); 
-      };
+      
+      const isComplete = Object.values(answers).every(v=>v!=='pending') && (!isExt || finalType);
 
       return (
-        <div className="space-y-4 animate-in slide-in-from-right-4">
-          <div className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-red-600">
-            <div className="flex justify-between items-start">
-              <div>
-                <span className="text-xs font-bold bg-gray-200 text-gray-700 px-2 py-1 rounded mb-2 inline-block">{equipment.factory} / {equipment.dept}</span>
-                <h2 className="text-xl font-bold">{equipment.id} {equipment.type} {equipment.extinguisherType ? `(${equipment.extinguisherType})` : ''}</h2>
-                <p className="text-sm text-gray-600">{equipment.location}</p>
-              </div>
-              <div className="flex flex-col items-end">
-                 <label className="text-xs font-bold text-gray-500 mb-1">設備數量</label>
-                 <div className="flex items-center gap-1">
-                   <input type="number" min="1" value={quantity} onChange={e => setQuantity(e.target.value)} className="w-16 border-2 border-gray-300 rounded-lg p-1 text-center font-bold outline-none focus:border-red-500" />
-                   <span className="text-sm font-bold text-gray-700">支</span>
-                 </div>
-              </div>
+        <div className="space-y-4">
+          <div className="bg-white p-4 rounded-xl border-l-4 border-red-600 shadow-sm flex justify-between">
+            <div>
+              <h2 className="font-bold text-lg">{equipment.id} {equipment.type}</h2>
+              <p className="text-xs text-gray-500">{equipment.dept} - {equipment.location}</p>
             </div>
-          </div>
-
-          {needsTypeSelection && (
-            <div className="bg-yellow-50 p-4 rounded-xl border-2 border-yellow-300 shadow-sm animate-in fade-in">
-              <p className="text-sm font-bold text-yellow-800 mb-3 flex items-center gap-1"><Icon name="AlertTriangle" size={18}/> 系統發現未設定種類，請於現場確認並選擇：</p>
-              <div className="flex gap-2">
-                {['乾粉', 'CO2', '泡沫'].map(t => (
-                  <button key={t} onClick={()=>setTempType(t)} className={`flex-1 py-2.5 rounded-lg border-2 font-bold transition-colors ${tempType === t ? 'bg-yellow-500 border-yellow-600 text-white shadow-inner' : 'bg-white border-yellow-200 text-yellow-700 hover:bg-yellow-100'}`}>{t}</button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div className="bg-white p-4 rounded-xl shadow-sm">
-            <div className="flex justify-between items-center mb-4 border-b pb-2">
-              <h3 className="font-bold text-lg">檢查項目</h3>
-              <button onClick={() => setAnswers(questions.reduce((acc, q) => ({ ...acc, [q.id]: 'normal' }), {}))} className="text-sm bg-green-100 text-green-700 px-3 py-1 rounded-lg font-semibold hover:bg-green-200">一鍵全正常</button>
-            </div>
-            <div className="space-y-4">
-              {questions.map((q, idx) => (
-                <div key={q.id} className="p-3 bg-gray-50 rounded-xl border border-gray-100">
-                  <p className="font-medium text-sm mb-3 whitespace-pre-line"><span className="text-red-600 font-bold">{idx + 1}.</span> {q.text}</p>
-                  {needsWeight && q.id === 'q1' && (
-                    <div className="flex items-center gap-3 mb-3 bg-blue-50 p-3 rounded-lg border border-blue-100 animate-in fade-in">
-                      <span className="text-sm font-bold text-blue-800">實際重量:</span>
-                      <input type="text" inputMode="decimal" value={weight} onChange={e=> {if (/^\d{0,2}(\.\d{0,1})?$/.test(e.target.value)) setWeight(e.target.value)}} placeholder="00.0" className="border-2 border-blue-300 rounded-lg p-1.5 w-24 text-center font-bold text-blue-900 outline-none focus:border-blue-600" /> kg
-                    </div>
-                  )}
-                  <div className="flex gap-3">
-                    <button onClick={() => setAnswers(p => ({ ...p, [q.id]: 'normal'}))} className={`flex-1 py-2.5 border-2 rounded-lg font-semibold flex justify-center items-center gap-2 ${answers[q.id] === 'normal' ? 'bg-green-50 border-green-500 text-green-700' : 'bg-white hover:bg-gray-100'}`}><Icon name="CheckCircle" size={18}/>正常</button>
-                    <button onClick={() => setAnswers(p => ({ ...p, [q.id]: 'abnormal'}))} className={`flex-1 py-2.5 border-2 rounded-lg font-semibold flex justify-center items-center gap-2 ${answers[q.id] === 'abnormal' ? 'bg-red-50 border-red-500 text-red-700' : 'bg-white hover:bg-gray-100'}`}><Icon name="XCircle" size={18}/>異常</button>
-                  </div>
-                </div>
-              ))}
+            <div className="flex flex-col items-center">
+              <label className="text-[10px] text-gray-500 font-bold mb-1">設備數量</label>
+              <input type="number" min="1" value={quantity} onChange={e=>setQuantity(e.target.value)} className="w-16 border rounded p-1 text-center font-bold" />
             </div>
           </div>
           
-          {hasAbnormal && (
-            <div className="bg-red-50 p-4 rounded-xl border border-red-200 animate-in fade-in">
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-sm font-bold text-red-800">異常描述與備註：</span>
-                <button onClick={handleAIAssist} disabled={isGeneratingAI} className={`text-xs font-bold px-3 py-1.5 rounded-lg flex items-center gap-1 transition-colors shadow-sm ${isGeneratingAI ? 'ai-bg-shimmer text-purple-700 cursor-wait' : 'bg-purple-100 text-purple-700 hover:bg-purple-200'}`}>
-                  {isGeneratingAI ? '產生中...' : '✨ AI 改善建議'}
-                </button>
+          {needsType && (
+            <div className="bg-yellow-50 p-4 rounded-xl border-2 border-yellow-300">
+              <p className="text-xs font-bold mb-2 text-yellow-800">⚠️ 系統缺失種類，請於現場確認：</p>
+              <div className="flex gap-2">
+                {['乾粉','CO2','泡沫'].map(t=><button key={t} onClick={()=>setTempType(t)} className={`flex-1 py-2 rounded border-2 font-bold ${tempType===t?'bg-yellow-500 border-yellow-600 text-white':'bg-white text-yellow-700'}`}>{t}</button>)}
               </div>
-              <textarea value={remark} className="w-full p-3 rounded-xl border outline-none focus:ring-2 focus:ring-red-200 text-sm leading-relaxed" rows="4" placeholder="自行填寫異常狀況，或點擊上方 AI 按鈕自動產生..." onChange={e=>setRemark(e.target.value)}></textarea>
             </div>
           )}
-
+          
+          <div className="bg-white p-4 rounded-xl shadow-sm space-y-4">
+            <div className="flex justify-between items-center border-b pb-2">
+              <h3 className="font-bold">檢查項目</h3>
+              <button onClick={() => setAnswers(questions.reduce((acc, q) => ({ ...acc, [q.id]: 'normal' }), {}))} className="text-xs bg-green-100 text-green-700 px-3 py-1.5 rounded-lg font-bold">一鍵全正常</button>
+            </div>
+            {questions.map((q, i) => (
+              <div key={q.id} className="p-3 bg-gray-50 rounded-lg border border-gray-100">
+                <p className="text-sm mb-2 font-medium"><span className="font-bold text-red-600">{i+1}.</span> {q.text}</p>
+                {isExt && q.id==='q1' && (finalType==='CO2'||finalType==='泡沫') && (
+                  <div className="mb-3 flex items-center gap-2 bg-blue-50 p-2 rounded">
+                    <span className="text-sm font-bold text-blue-700">測量重量:</span>
+                    <input type="number" step="0.1" value={weight} onChange={e=>setWeight(e.target.value)} className="w-20 border rounded p-1 text-center" placeholder="00.0"/> kg
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <button onClick={()=>setAnswers(p=>({...p,[q.id]:'normal'}))} className={`flex-1 py-2.5 rounded-lg border-2 font-bold ${answers[q.id]==='normal'?'bg-green-50 border-green-500 text-green-700':'bg-white'}`}><Icon name="CheckCircle" size={16} className="inline mr-1"/>正常</button>
+                  <button onClick={()=>setAnswers(p=>({...p,[q.id]:'abnormal'}))} className={`flex-1 py-2.5 rounded-lg border-2 font-bold ${answers[q.id]==='abnormal'?'bg-red-50 border-red-500 text-red-700':'bg-white'}`}><Icon name="XCircle" size={16} className="inline mr-1"/>異常</button>
+                </div>
+              </div>
+            ))}
+          </div>
+          
+          {Object.values(answers).includes('abnormal') && (
+            <div className="bg-red-50 p-4 rounded-xl border border-red-200">
+              <label className="text-sm font-bold text-red-800 mb-2 block">異常備註說明：</label>
+              <textarea value={remark} onChange={e=>setRemark(e.target.value)} className="w-full p-3 border rounded-xl outline-none focus:border-red-400" rows="3" placeholder="請描述損壞狀況..." />
+            </div>
+          )}
+          
           <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-            <h3 className="font-bold mb-3 flex items-center gap-2"><Icon name="PenTool" size={18}/>點檢簽核</h3>
-            <label className="text-xs font-bold text-gray-500 ml-1">檢查人姓名 (系統鎖定自動帶入)</label>
-            <div className="w-full border-2 border-gray-100 p-3 bg-gray-100 mb-3 rounded-xl text-gray-600 font-bold cursor-not-allowed flex items-center gap-2">
+            <h3 className="font-bold text-sm mb-2"><Icon name="PenTool" size={16} className="inline mr-1"/> 點檢人簽核</h3>
+            <div className="w-full border p-3 bg-gray-100 rounded-xl text-gray-600 font-bold flex items-center gap-2">
               <Icon name="Lock" size={16} /> {currentUser.name}
             </div>
-            <p className="text-xs text-yellow-600 font-bold mt-2">※ 本次送出後，將自動發送交由火源責任者(主管)進行確認簽核。</p>
+            <p className="text-xs text-yellow-600 font-bold mt-2">※ 送出後將發送予火源責任者進行確認。</p>
           </div>
-          <div className="flex gap-3 pt-2">
-            <button onClick={onCancel} className="w-1/3 py-3 bg-gray-200 rounded-xl font-bold hover:bg-gray-300">取消</button>
-            <button onClick={handleSubmit} disabled={!isComplete} className={`w-2/3 py-3 rounded-xl font-bold text-white ${isComplete ? 'bg-red-600 hover:bg-red-700 shadow-md' : 'bg-gray-300'}`}>送出</button>
+          
+          <div className="flex gap-3">
+            <button onClick={onCancel} className="flex-1 py-3 bg-gray-200 rounded-xl font-bold">取消</button>
+            <button onClick={()=>onSubmit({equipmentId:equipment.id,answers,weight,hasAbnormal:Object.values(answers).includes('abnormal'),remark,inspectorName:currentUser.name},tempType,quantity)} disabled={!isComplete} className={`flex-2 py-3 rounded-xl font-bold text-white ${isComplete?'bg-red-600 shadow-md':'bg-gray-300'}`}>送出點檢</button>
           </div>
         </div>
       );
     }
 
     function EquipmentList({ equipmentList, inspections, currentYear, currentMonth, onDetail, onConfirm, onReject }) {
-      const [filter, setFilter] = useState('all'); 
-      const [deptFilter, setDeptFilter] = useState('all'); 
-      const [typeFilter, setTypeFilter] = useState('all'); 
-      const [searchTerm, setSearchTerm] = useState('');
-      const [showScannerModal, setShowScannerModal] = useState(false);
-      const [selectedQrEq, setSelectedQrEq] = useState(null); 
+      const [filter, setFilter] = useState('all');
       
-      const departments = [...new Set(equipmentList.map(eq => (eq.dept || '').toString().trim()))].filter(Boolean);
-
       const getStatus = (id) => {
-        const safeEqId = (id || '').toString().trim();
-        const record = inspections.find(i => (i.equipmentId || '').toString().trim() === safeEqId && Number(i.year) === Number(currentYear) && Number(i.month) === Number(currentMonth));
-        if (!record) return { label: '本月未點', color: 'bg-gray-100 text-gray-600', code: 'none' };
-        if (!record.managerName || record.managerName === "") return { label: '待火源管理者確認', color: 'bg-yellow-100 text-yellow-700', code: 'pending' };
+        const r = inspections.find(i=>i.equipmentId==id && i.year==currentYear && i.month==currentMonth);
+        if (!r) return { label: '未點檢', color: 'bg-gray-100 text-gray-500', code: 'none' };
+        if (!r.managerName) return { label: '待確認', color: 'bg-yellow-100 text-yellow-700', code: 'pending' };
         return { label: '已完成', color: 'bg-green-100 text-green-700', code: 'done' };
       };
-
-      const filteredList = equipmentList.filter(eq => {
-        const safeEqId = (eq.id || '').toString().trim();
-        const safeEqDept = (eq.dept || '').toString().trim();
-        const safeEqType = (eq.type || '').toString().trim();
-
-        const s = getStatus(safeEqId).code;
-        
-        if (filter !== 'all' && s !== filter) return false;
-        if (deptFilter !== 'all' && safeEqDept !== deptFilter) return false;
-        if (typeFilter !== 'all' && safeEqType !== typeFilter) return false;
-        if (searchTerm && !safeEqId.toLowerCase().includes(searchTerm.toLowerCase().trim())) return false;
-        
-        return true;
-      });
-
-      const downloadQrCode = async (id) => {
-        try {
-          const response = await fetch(`https://api.qrserver.com/v1/create-qr-code/?size=500x500&data=${id}`);
-          const blob = await response.blob();
-          const url = window.URL.createObjectURL(blob);
-          const link = document.createElement('a');
-          link.href = url;
-          link.download = `設備標籤_${id}.png`;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          window.URL.revokeObjectURL(url);
-        } catch (error) { alert("下載失敗，請直接長按圖片儲存或右鍵另存圖片"); }
-      };
-
-      const printQrCode = (eq) => {
-        const win = window.open('', '_blank');
-        win.document.write(`
-          <html><head><title>列印標籤 - ${eq.id}</title>
-            <style>body { display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; font-family: sans-serif; background: #fff; } .label { border: 6px solid #000; padding: 40px; border-radius: 20px; text-align: center; } h1 { font-size: 64px; margin: 0 0 10px 0; letter-spacing: 2px; } p { font-size: 24px; color: #333; margin: 0 0 20px 0; font-weight: bold; } img { width: 300px; height: 300px; display: block; margin: 0 auto; } .footer { margin-top: 20px; font-size: 22px; font-weight: bold; } .dept { margin-top: 8px; font-size: 18px; color: #555; }</style>
-          </head><body>
-            <div class="label"><h1>${eq.id}</h1><p>${eq.type}</p><img src="https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${eq.id}" onload="window.print(); window.close();" /><div class="footer">${eq.factory} - ${eq.floor}</div><div class="dept">${eq.dept}</div></div>
-          </body></html>
-        `);
-        win.document.close();
-      };
-
+      
+      const filtered = equipmentList.filter(e => filter==='all' || getStatus(e.id).code === filter);
+      
       return (
-        <div className="space-y-4 animate-in fade-in">
-          {showScannerModal && (
-            <div className="fixed inset-0 z-[100] bg-gray-50 flex flex-col animate-in slide-in-from-bottom-4">
-              <header className="bg-gray-900 text-white p-4 flex justify-between items-center"><h2 className="font-bold flex items-center gap-2"><Icon name="QrCode" size={20}/> 掃碼搜尋</h2><button onClick={()=>setShowScannerModal(false)}><Icon name="XCircle" size={24}/></button></header>
-              <div className="flex-1 overflow-y-auto p-4"><Scanner onScan={(id) => {setSearchTerm(id); setShowScannerModal(false);}} mockEquipment={equipmentList} /></div>
-            </div>
-          )}
-
-          {selectedQrEq && (
-            <div className="fixed inset-0 z-[200] bg-black/60 flex items-center justify-center p-4 backdrop-blur-sm" onClick={() => setSelectedQrEq(null)}>
-              <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden animate-in zoom-in-95" onClick={e => e.stopPropagation()}>
-                <header className="bg-gray-900 text-white p-4 flex justify-between items-center"><h2 className="font-bold flex items-center gap-2"><Icon name="QrCode" size={20}/> 設備專屬 QR 標籤</h2><button onClick={() => setSelectedQrEq(null)}><Icon name="XCircle" size={24}/></button></header>
-                <div className="p-8 bg-white flex flex-col items-center text-center">
-                  <div className="border-4 border-black p-6 rounded-xl inline-block w-full">
-                    <h3 className="text-3xl font-black mb-1 tracking-wider">{selectedQrEq.id}</h3><p className="text-sm font-bold text-gray-600 mb-4">{selectedQrEq.type}</p>
-                    <img src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${selectedQrEq.id}`} alt={selectedQrEq.id} className="w-48 h-48 mx-auto shadow-sm" crossOrigin="anonymous"/>
-                    <div className="mt-5 text-sm font-bold text-gray-800">{selectedQrEq.factory} - {selectedQrEq.floor}</div><div className="text-xs font-bold text-gray-500 mt-1">{selectedQrEq.dept}</div>
-                  </div>
-                </div>
-                <div className="p-4 bg-gray-50 border-t flex gap-3">
-                  <button onClick={() => downloadQrCode(selectedQrEq.id)} className="flex-1 py-3 bg-green-600 text-white rounded-xl font-bold flex justify-center items-center gap-2 hover:bg-green-700 shadow-md transition-colors"><Icon name="Download" size={18}/> 下載圖片</button>
-                  <button onClick={() => printQrCode(selectedQrEq)} className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold flex justify-center items-center gap-2 hover:bg-blue-700 shadow-md transition-colors"><Icon name="Printer" size={18}/> 產生列印</button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          <div className="bg-white p-4 rounded-xl shadow-sm sticky top-16 z-0 border border-gray-100">
-            <div className="flex gap-2 mb-3">
-              <div className="relative flex-1">
-                <input type="text" placeholder="搜尋編號..." className="w-full bg-gray-100 rounded-xl py-2 pl-10 pr-10 outline-none text-sm focus:ring-2 focus:ring-red-200" value={searchTerm} onChange={e=>setSearchTerm(e.target.value)}/>
-                <Icon name="Search" size={18} className="absolute left-3 top-2.5 text-gray-400" />
-                {searchTerm && <button onClick={() => setSearchTerm('')} className="absolute right-3 top-2.5 text-gray-400"><Icon name="XCircle" size={18}/></button>}
-              </div>
-              <button onClick={()=>setShowScannerModal(true)} className="bg-gray-800 text-white px-3 py-2 rounded-xl hover:bg-gray-700 shadow"><Icon name="QrCode" size={20} /></button>
-            </div>
-            <div className="flex gap-2 mb-3">
-              <select className="flex-1 w-1/2 bg-gray-50 border border-gray-300 rounded-xl py-2 px-3 text-sm outline-none font-medium focus:border-red-500 focus:ring-2 focus:ring-red-100" value={typeFilter} onChange={e => setTypeFilter(e.target.value)}>
-                <option value="all">🔍 所有設備</option><option value="滅火器">滅火器</option><option value="消防栓">消防栓</option>
-              </select>
-              <select className="flex-1 w-1/2 bg-gray-50 border border-gray-300 rounded-xl py-2 px-3 text-sm outline-none font-medium focus:border-red-500 focus:ring-2 focus:ring-red-100" value={deptFilter} onChange={e => setDeptFilter(e.target.value)}>
-                <option value="all">🔍 所有單位</option>{departments.map(d => <option key={d} value={d}>{d}</option>)}
-              </select>
-            </div>
-            <div className="flex bg-gray-50 p-1 rounded-xl gap-1">
-              <button onClick={()=>setFilter('all')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition ${filter==='all'?'bg-red-600 text-white shadow-sm':'text-gray-500 hover:bg-gray-200'}`}>全部</button>
-              <button onClick={()=>setFilter('none')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition ${filter==='none'?'bg-red-600 text-white shadow-sm':'text-gray-500 hover:bg-gray-200'}`}>未點檢</button>
-              <button onClick={()=>setFilter('pending')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition ${filter==='pending'?'bg-yellow-500 text-white shadow-sm':'text-gray-500 hover:bg-gray-200'}`}>待確認</button>
-              <button onClick={()=>setFilter('done')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition ${filter==='done'?'bg-green-600 text-white shadow-sm':'text-gray-500 hover:bg-gray-200'}`}>已完成</button>
-            </div>
+        <div className="space-y-4">
+          {/* ⭐ 這裡完美包含了待確認的篩選按鈕 */}
+          <div className="flex bg-gray-100 p-1 rounded-xl gap-1">
+            {[['all','全部'],['none','未點'],['pending','待簽'],['done','完成']].map(([v,l])=>(
+              <button key={v} onClick={()=>setFilter(v)} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-colors ${filter===v?'bg-red-600 text-white shadow-sm':'text-gray-500'}`}>{l}</button>
+            ))}
           </div>
-
-          <div className="space-y-3 pb-8">
-            {equipmentList.length === 0 && (
-              <div className="text-center py-12"><Icon name="ClipboardList" size={48} className="mx-auto text-gray-300 mb-3" /><p className="text-gray-500 font-bold">尚無設備資料</p><p className="text-sm text-gray-400 mt-1">請至管理後台進行 CSV 匯入</p></div>
-            )}
-            {filteredList.map((eq, index) => {
-              const status = getStatus(eq.id);
+          <div className="space-y-3">
+            {filtered.map(eq => {
+              const s = getStatus(eq.id);
               return (
-                <div key={`${eq.id}-${index}`} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 hover:border-red-300 transition-colors">
-                  <div className="flex items-center justify-between cursor-pointer" onClick={()=>onDetail(eq.id)}>
+                <div key={eq.id} className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
+                  <div className="flex justify-between items-center cursor-pointer" onClick={()=>onDetail(eq.id)}>
                     <div>
-                      <div className="flex items-center gap-2 mb-1"><span className="font-bold text-gray-800">{eq.id}</span><span className={`text-xs px-2 py-0.5 rounded-full ${status.color}`}>{status.label}</span></div>
-                      <div className="text-sm font-medium text-gray-700">{eq.type}{eq.extinguisherType ? <span className="ml-1 text-xs text-gray-500 font-normal">({eq.extinguisherType})</span> : ''} - {eq.factory} ({eq.floor})</div>
-                      <div className="text-xs text-gray-500 mt-1">{eq.location} - <span className="font-semibold text-gray-700">{eq.dept}</span></div>
+                      <p className="font-bold text-lg">{eq.id} <span className="text-xs font-normal text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full ml-1">{eq.type}</span></p>
+                      <p className="text-xs text-gray-500 mt-1">{eq.dept} - {eq.location}</p>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <button onClick={(e) => { e.stopPropagation(); setSelectedQrEq(eq); }} className="p-2.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors shadow-sm" title="顯示專屬 QR Code"><Icon name="QrCode" size={20} /></button>
-                      <Icon name="ChevronRight" size={20} className="text-gray-300" />
-                    </div>
+                    <span className={`text-[10px] px-2 py-1 rounded-full font-bold ${s.color}`}>{s.label}</span>
                   </div>
-                  {status.code === 'pending' && (
-                    <div className="flex gap-2 mt-3">
-                      <button onClick={(e) => { e.stopPropagation(); onReject(eq.id); }} className="flex-1 border border-red-300 bg-red-50 hover:bg-red-100 text-red-700 py-2.5 rounded-lg text-sm font-bold shadow-sm flex items-center justify-center gap-1 transition-colors">
-                        <Icon name="XCircle" size={16} /> 不同意
+                  {/* ⭐ 火源責任者簽核按鈕區 */}
+                  {s.code === 'pending' && (
+                    <div className="flex gap-2 mt-4 pt-3 border-t border-gray-100">
+                      <button onClick={(e)=>{e.stopPropagation(); onReject(eq.id);}} className="flex-1 py-2 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-lg text-sm font-bold flex items-center justify-center gap-1">
+                        <Icon name="XCircle" size={16}/> 退回不同意
                       </button>
-                      <button onClick={(e) => { e.stopPropagation(); onConfirm(eq.id); }} className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2.5 rounded-lg text-sm font-bold shadow-sm flex items-center justify-center gap-1 transition-colors">
-                        <Icon name="CheckCircle" size={16} /> 同意
+                      <button onClick={(e)=>{e.stopPropagation(); onConfirm(eq.id);}} className="flex-1 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-bold shadow-md flex items-center justify-center gap-1">
+                        <Icon name="CheckCircle" size={16}/> 同意簽核
                       </button>
                     </div>
                   )}
                 </div>
               );
             })}
-            {equipmentList.length > 0 && filteredList.length === 0 && <div className="text-center py-10 text-gray-400 text-sm">查無符合條件的設備</div>}
+            {filtered.length === 0 && <div className="text-center py-10 text-gray-400 text-sm">查無符合條件的設備</div>}
+          </div>
+        </div>
+      );
+    }
+
+    function RecordList({ equipmentList, inspections }) {
+      const [mode, setMode] = useState('all'); 
+      const currentYear = new Date().getFullYear();
+      const currentMonth = new Date().getMonth() + 1;
+      const [fYear, setFYear] = useState(currentYear);
+      const [fMonth, setFMonth] = useState(currentMonth);
+
+      const recordsWithEq = inspections.map(r => ({ ...r, eq: equipmentList.find(e => e.id === r.equipmentId) || {} }));
+      const inspected = recordsWithEq.filter(r => Number(r.year) === Number(fYear) && Number(r.month) === Number(fMonth));
+      const uninspected = equipmentList.filter(e => !inspections.some(i => i.equipmentId === e.id && Number(i.year) === Number(fYear) && Number(i.month) === Number(fMonth))).map(e => ({ equipmentId: e.id, eq: e, isUn: true }));
+
+      let list = [];
+      if (mode === 'uninspected') list = uninspected;
+      else if (mode === 'pending') list = inspected.filter(r => !r.managerName);
+      else if (mode === 'done') list = inspected.filter(r => r.managerName);
+      else list = [...inspected, ...uninspected];
+
+      const handleExportCSV = () => {
+        if (list.length === 0) return;
+        const headers = ['年份', '月份', '設備編號', '設備種類', '廠區', '區域', '責任單位', '狀態', '巡檢時間', '檢查人姓名', '巡檢IP', '確認時間', '火源責任者姓名', '確認IP', '重量', '備註'];
+        const csvRows = [headers.join(',')];
+        list.forEach(r => {
+          const status = r.isUn ? '未點檢' : (!r.managerName ? '待火源責任者確認' : (r.hasAbnormal ? '異常' : '正常'));
+          csvRows.push([
+            fYear, fMonth, r.equipmentId, r.eq.type||'', r.eq.factory||'', r.eq.zone||'', r.eq.dept||'', 
+            status, r.date||'-', r.inspectorName||'-', r.inspectorIp||'-', r.managerDate||'-', r.managerName||'-', r.managerIp||'-', r.weight||'-', `"${(r.remark||'').replace(/"/g,'""')}"`
+          ].join(','));
+        });
+        const blob = new Blob(["\uFEFF" + csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `點檢明細_${fYear}年${fMonth}月.csv`;
+        link.click();
+      };
+
+      return (
+        <div className="space-y-4">
+          <div className="bg-white p-4 rounded-xl border shadow-sm">
+            <h2 className="font-bold mb-4 flex items-center gap-2"><Icon name="History" size={20}/> 歷史明細查詢</h2>
+            
+            {/* ⭐ 歷史明細同樣包含待確認按鈕 */}
+            <div className="flex bg-gray-50 p-1 rounded-xl gap-1 mb-4 border">
+              {[['all','全部'],['uninspected','未點'],['pending','待簽'],['done','完成']].map(([v,l])=>
+                <button key={v} onClick={()=>setMode(v)} className={`flex-1 py-2 text-xs font-bold rounded-lg transition ${mode===v?'bg-blue-600 text-white shadow-sm':'text-gray-500'}`}>{l}</button>
+              )}
+            </div>
+            <div className="grid grid-cols-2 gap-2 mb-4">
+              <select className="p-2 border rounded-lg text-sm outline-none focus:border-blue-500" value={fYear} onChange={e=>setFYear(e.target.value)}><option value={2026}>2026年</option><option value={2025}>2025年</option></select>
+              <select className="p-2 border rounded-lg text-sm outline-none focus:border-blue-500" value={fMonth} onChange={e=>setFMonth(e.target.value)}>{[1,2,3,4,5,6,7,8,9,10,11,12].map(m=><option key={m} value={m}>{m}月</option>)}</select>
+            </div>
+            <button onClick={handleExportCSV} disabled={list.length === 0} className={`w-full py-2.5 rounded-xl font-bold flex items-center justify-center gap-2 ${list.length > 0 ? 'bg-blue-600 text-white shadow-md' : 'bg-gray-200 text-gray-400'}`}>
+              <Icon name="Download" size={18}/> 匯出 CSV Excel
+            </button>
+          </div>
+          
+          <div className="space-y-3">
+            <p className="text-xs text-gray-500 font-bold">共找到 {list.length} 筆資料</p>
+            {list.map((r, i) => (
+              <div key={i} className={`bg-white p-4 rounded-xl border-l-4 ${r.isUn?'border-red-400':(!r.managerName?'border-yellow-400':(r.hasAbnormal?'border-red-600':'border-green-400'))} shadow-sm`}>
+                <div className="flex justify-between mb-1"><span className="font-bold text-lg">{r.equipmentId}</span><span className="text-[10px] text-gray-500 font-bold bg-gray-100 px-2 py-1 rounded-lg">{r.isUn?'未點檢':(!r.managerName?'待火源責任者確認':'已完成')}</span></div>
+                <div className="text-xs text-gray-600 mb-2">{r.eq.type} - {r.eq.dept} ({r.eq.location})</div>
+                
+                {!r.isUn && (
+                  <div className="mt-3 pt-2 border-t border-dashed border-gray-200 text-[11px] text-gray-500 flex flex-col gap-1.5">
+                    <div className="flex justify-between"><span>巡檢: <strong>{r.inspectorName}</strong></span> <span>{r.date}</span></div>
+                    {r.managerName && <div className="flex justify-between text-green-700"><span>確認: <strong>{r.managerName}</strong></span> <span>{r.managerDate}</span></div>}
+                    {r.weight && <div className="text-blue-600">重量: {r.weight} kg</div>}
+                    {r.remark && <div className="text-red-600 bg-red-50 p-1.5 rounded mt-1">異常: {r.remark}</div>}
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
         </div>
       );
     }
 
     function InspectionCardUI({ equipment, inspections, reportYear, reportHalf }) {
-      const isExtinguisher = equipment.type === '滅火器';
-      const questions = isExtinguisher ? EXTINGUISHER_QUESTIONS : HYDRANT_QUESTIONS;
-      const formNo = isExtinguisher ? '04H0001' : '04H0002';
+      const isExt = equipment.type === '滅火器';
+      const questions = isExt ? EXTINGUISHER_QUESTIONS : HYDRANT_QUESTIONS;
       const months = reportHalf === 'H1' ? [1,2,3,4,5,6] : [7,8,9,10,11,12];
-      const eqInspections = inspections.filter(i => (i.equipmentId || '').toString().trim() === (equipment.id || '').toString().trim() && Number(i.year) === reportYear);
+      const eqIns = inspections.filter(i => i.equipmentId == equipment.id && i.year == reportYear);
+      
+      const getShortDate = (str) => {
+        if(!str) return '';
+        const m = String(str).match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+        return m ? `${parseInt(m[2], 10)}/${parseInt(m[3], 10)}` : String(str).split(/[ T]/)[0];
+      };
 
       return (
-        <>
-          <h2 className="text-center text-xl font-bold mb-4 print:mb-2">{isExtinguisher ? '滅火器點檢卡' : '消防栓點檢卡'}</h2>
-          <div className="grid grid-cols-2 text-sm font-bold mb-4 print:mb-2">
-            <div>編號：<span className="text-red-700 px-2 border-b border-gray-400 font-black">{equipment.id}</span></div>
-            <div className="text-right">管理單位：<span className="px-2 border-b border-gray-400">{equipment.dept}</span></div>
-            {isExtinguisher && (
-              <div className="col-span-2 mt-1 flex items-center flex-wrap">
-                <span className="mr-1">滅火器種類：</span>
-                <span className="inline-flex items-center mx-2"><span className="w-4 h-4 border border-gray-400 flex items-center justify-center mr-1 text-[10px] font-bold bg-gray-100 leading-none">{equipment.extinguisherType === 'CO2' ? 'V' : ''}</span>CO2</span>
-                <span className="inline-flex items-center mx-2"><span className="w-4 h-4 border border-gray-400 flex items-center justify-center mr-1 text-[10px] font-bold bg-gray-100 leading-none">{equipment.extinguisherType === '泡沫' ? 'V' : ''}</span>泡沫</span>
-                <span className="inline-flex items-center mx-2"><span className="w-4 h-4 border border-gray-400 flex items-center justify-center mr-1 text-[10px] font-bold bg-gray-100 leading-none">{equipment.extinguisherType === '乾粉' ? 'V' : ''}</span>乾粉</span>
-              </div>
-            )}
-            <div className="mt-1">{reportYear}年度 {reportHalf === 'H1' ? '上半年' : '下半年'}</div>
-            <div className="text-right mt-1">數量：<span className="border-b border-gray-400 px-2">{equipment.quantity || 1}</span> 支</div>
+        <div className="w-full">
+          <h2 className="text-center text-xl font-bold mb-2">{isExt ? '滅火器點檢卡' : '消防栓點檢卡'}</h2>
+          <div className="grid grid-cols-2 text-[10px] font-bold mb-2">
+            <div>編號：<span className="border-b border-black px-2 text-sm">{equipment.id}</span></div>
+            <div className="text-right">單位：<span className="border-b border-black px-2">{equipment.dept}</span></div>
           </div>
-
-          <div className="w-full border-2 border-black">
-            <table className="w-full text-[10px] sm:text-xs text-center border-collapse table-fixed print:min-w-full">
-              <thead>
-                <tr className="bg-gray-100">
-                  <th className="border border-black p-1 w-[30%] sm:w-[35%]" rowSpan={2}>檢查內容</th>
-                  {months.map(m => <th key={m} className="border border-black p-0.5" colSpan={2}>{m}月</th>)}
-                </tr>
-                <tr className="bg-gray-100">
-                  {months.map(m => <React.Fragment key={m}><th className="border border-black p-0 tracking-tighter">正常</th><th className="border border-black p-0 tracking-tighter">異常</th></React.Fragment>)}
-                </tr>
-              </thead>
-              <tbody>
-                {questions.map(q => (
-                  <tr key={q.id}>
-                    <td className="border border-black p-1 text-left align-middle leading-tight font-medium whitespace-pre-line break-words">{q.text}</td>
-                    {months.map(m => {
-                      const rec = eqInspections.find(i => Number(i.month) === m);
-                      const isN = rec && rec.answers[q.id] === 'normal';
-                      const isA = rec && rec.answers[q.id] === 'abnormal';
-                      const hasWeight = isExtinguisher && q.id === 'q1' && rec?.weight;
-                      return (
-                        <React.Fragment key={m}>
-                          <td className="border border-black p-0 sm:p-1 text-green-600 font-bold align-middle">
-                            {isN && <div className="flex flex-col items-center justify-center leading-none"><span>V</span>{hasWeight && <span className="text-[8px] sm:text-[10px] text-gray-700 font-normal mt-0.5 scale-90 sm:scale-100">{rec.weight}</span>}</div>}
-                          </td>
-                          <td className="border border-black p-0 sm:p-1 text-red-600 font-bold align-middle">
-                            {isA && <div className="flex flex-col items-center justify-center leading-none"><span>V</span>{hasWeight && <span className="text-[8px] sm:text-[10px] text-gray-700 font-normal mt-0.5 scale-90 sm:scale-100">{rec.weight}</span>}</div>}
-                          </td>
-                        </React.Fragment>
-                      );
-                    })}
-                  </tr>
-                ))}
-                <tr>
-                  <td className="border border-black p-1 text-left bg-gray-50 font-bold whitespace-nowrap">火源責任者姓名:</td>
+          <table className="w-full text-[9px] border-collapse border-2 border-black">
+            <thead>
+              <tr className="bg-gray-100"><th className="border border-black p-1 w-[35%]" rowSpan={2}>檢查內容</th>{months.map(m=><th key={m} className="border border-black" colSpan={2}>{m}月</th>)}</tr>
+              <tr className="bg-gray-100">{months.map(m=><React.Fragment key={m}><th className="border border-black">正</th><th className="border border-black">異</th></React.Fragment>)}</tr>
+            </thead>
+            <tbody>
+              {questions.map(q => (
+                <tr key={q.id}>
+                  <td className="border border-black p-1 text-left whitespace-pre-line">{q.text}</td>
                   {months.map(m => {
-                    const rec = eqInspections.find(i=>Number(i.month)===m);
-                    let dateStr = '';
-                    if (rec?.managerName && rec?.managerDate) {
-                      const match = String(rec.managerDate).match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
-                      if (match) {
-                        dateStr = ` ${parseInt(match[2], 10)}/${parseInt(match[3], 10)}`;
-                      } else {
-                        dateStr = ` ${String(rec.managerDate).split(/[ T]/)[0]}`;
-                      }
-                    }
-                    return <td key={m} colSpan={2} className="border border-black p-0.5 text-blue-800 tracking-tighter break-all text-[10px] sm:text-[11px]">{rec?.managerName || ''}<span className="text-gray-500 font-normal">{dateStr}</span></td>;
+                    const r = eqIns.find(i=>i.month==m);
+                    return (
+                      <React.Fragment key={m}>
+                        <td className="border border-black text-center font-bold text-green-700 text-[11px]">{r && r.answers[q.id]==='normal'?'V':''}</td>
+                        <td className="border border-black text-center font-bold text-red-700 text-[11px]">{r && r.answers[q.id]==='abnormal'?'V':''}</td>
+                      </React.Fragment>
+                    );
                   })}
                 </tr>
-                <tr>
-                  <td className="border border-black p-1 text-left bg-gray-50 font-bold whitespace-nowrap">檢查人姓名:</td>
-                  {months.map(m => {
-                    const rec = eqInspections.find(i=>Number(i.month)===m);
-                    let dateStr = '';
-                    if (rec?.inspectorName && rec?.date) {
-                      const match = String(rec.date).match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
-                      if (match) {
-                        dateStr = ` ${parseInt(match[2], 10)}/${parseInt(match[3], 10)}`;
-                      } else {
-                        dateStr = ` ${String(rec.date).split(/[ T]/)[0]}`;
-                      }
-                    }
-                    return <td key={m} colSpan={2} className="border border-black p-0.5 text-blue-800 tracking-tighter break-all text-[10px] sm:text-[11px]">{rec?.inspectorName || ''}<span className="text-gray-500 font-normal">{dateStr}</span></td>;
-                  })}
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <div className="text-xs text-gray-600 space-y-2 mt-4">
-            <p>備註:火源責任者由管理幹部擔當(組級以上人員)，檢查人員為現場單位指派之人員。</p>
-            <div className="flex justify-between font-bold">
-              <span>FORM NO : {formNo}</span>
-              <span>REV-E</span>
-            </div>
-          </div>
-        </>
+              ))}
+              <tr>
+                <td className="border border-black p-1 bg-gray-50 font-bold">火源責任者確認:</td>
+                {months.map(m => {
+                  const r = eqIns.find(i=>i.month==m);
+                  return <td key={m} colSpan={2} className="border border-black text-center text-blue-700 tracking-tighter break-all">{r?.managerName||''}<span className="text-gray-400 font-normal"> {getShortDate(r?.managerDate)}</span></td>
+                })}
+              </tr>
+              <tr>
+                <td className="border border-black p-1 bg-gray-50 font-bold">檢查人員:</td>
+                {months.map(m => {
+                  const r = eqIns.find(i=>i.month==m);
+                  return <td key={m} colSpan={2} className="border border-black text-center text-blue-700 tracking-tighter break-all">{r?.inspectorName||''}<span className="text-gray-400 font-normal"> {getShortDate(r?.date)}</span></td>
+                })}
+              </tr>
+            </tbody>
+          </table>
+        </div>
       );
     }
 
     function InspectionReport({ equipment, inspections, onBack }) {
-      const [reportYear, setReportYear] = useState(new Date().getFullYear());
-      const [reportHalf, setReportHalf] = useState(new Date().getMonth() + 1 <= 6 ? 'H1' : 'H2');
-      const [showPrintModal, setShowPrintModal] = useState(false);
-
+      const [year, setYear] = useState(new Date().getFullYear());
+      const [half, setHalf] = useState(new Date().getMonth() + 1 <= 6 ? 'H1' : 'H2');
       return (
-        <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
-          {showPrintModal && (
-            <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4">
-              <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl">
-                <h3 className="text-lg font-bold text-gray-800 mb-3"><Icon name="Printer" size={22} className="text-blue-600 inline mr-2"/>列印提示</h3>
-                <p className="text-gray-600 text-sm mb-5">若瀏覽器阻擋自動列印，請使用鍵盤：<br/><strong className="text-red-600">Ctrl + P</strong> 或 <strong className="text-red-600">Cmd + P</strong></p>
-                <div className="flex gap-3">
-                  <button onClick={() => setShowPrintModal(false)} className="flex-1 py-2 bg-gray-200 rounded font-bold">關閉</button>
-                  <button onClick={() => { setShowPrintModal(false); setTimeout(() => window.print(), 100); }} className="flex-1 py-2 bg-blue-600 text-white rounded font-bold">強制列印</button>
-                </div>
-              </div>
-            </div>
-          )}
+        <div className="space-y-4">
           <div className="flex justify-between print:hidden">
-            <button onClick={onBack} className="bg-white px-3 py-2 border rounded-lg flex items-center gap-2 hover:bg-gray-50"><Icon name="ArrowLeft" size={18}/>返回</button>
-            <button onClick={() => setShowPrintModal(true)} className="bg-blue-600 text-white px-3 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700 shadow"><Icon name="Printer" size={18}/>預覽列印</button>
+            <button onClick={onBack} className="bg-white border px-3 py-2 rounded-lg flex items-center gap-2 shadow-sm"><Icon name="ArrowLeft" size={18}/>返回</button>
+            <button onClick={() => window.print()} className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 shadow-md"><Icon name="Printer" size={18}/>列印點檢卡</button>
           </div>
-          
-          <div className="bg-white p-4 rounded-xl border print:border-none print:p-0 print:w-full">
-            <div className="flex gap-2 mb-4 print:hidden">
-              <select className="border p-1 text-sm rounded outline-none focus:border-blue-500" value={reportYear} onChange={e=>setReportYear(Number(e.target.value))}>
-                <option value={2026}>2026 年度</option><option value={2025}>2025 年度</option><option value={2024}>2024 年度</option>
-              </select>
-              <select className="border p-1 text-sm rounded outline-none focus:border-blue-500" value={reportHalf} onChange={e=>setReportHalf(e.target.value)}>
-                <option value="H1">上半年</option><option value="H2">下半年</option>
-              </select>
+          <div className="bg-white p-6 rounded-xl border shadow-sm print:border-none print:p-0">
+            <div className="flex gap-2 mb-6 print:hidden">
+              <select className="border p-2 rounded outline-none" value={year} onChange={e=>setYear(e.target.value)}><option value={2026}>2026 年度</option><option value={2025}>2025 年度</option></select>
+              <select className="border p-2 rounded outline-none" value={half} onChange={e=>setHalf(e.target.value)}><option value="H1">上半年 (1-6月)</option><option value="H2">下半年 (7-12月)</option></select>
             </div>
-            <InspectionCardUI equipment={equipment} inspections={inspections} reportYear={reportYear} reportHalf={reportHalf} />
+            <InspectionCardUI equipment={equipment} inspections={inspections} reportYear={year} reportHalf={half} />
           </div>
         </div>
       );
     }
 
     function BatchPrintView({ equipmentList, inspections, onBack }) {
-      const [reportYear, setReportYear] = useState(new Date().getFullYear());
-      const [reportHalf, setReportHalf] = useState(new Date().getMonth() + 1 <= 6 ? 'H1' : 'H2');
-      const [typeFilter, setTypeFilter] = useState('all');
-      const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-      const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
-
-      const filteredEquipmentList = equipmentList.filter(eq => {
-        const safeEqType = (eq.type || '').toString().trim();
-        if (typeFilter !== 'all' && safeEqType !== typeFilter) return false;
-        return true;
-      });
-
+      const [year, setYear] = useState(new Date().getFullYear());
+      const [half, setHalf] = useState(new Date().getMonth() + 1 <= 6 ? 'H1' : 'H2');
+      const [type, setType] = useState('all');
+      const [show, setShow] = useState(false);
+      const list = equipmentList.filter(e => type === 'all' || e.type === type);
+      
       useEffect(() => {
         if (!window.html2pdf) {
           const script = document.createElement('script');
@@ -1115,78 +869,40 @@
       }, []);
 
       const handleExportPDF = () => {
-        if (!window.html2pdf) { alert("PDF 轉換套件尚未載入完成，請稍候幾秒再試！"); return; }
-        
-        setIsGeneratingPDF(true);
+        if (!window.html2pdf) return alert("套件載入中，請稍候再試！");
         const element = document.getElementById('batch-print-content');
-        
-        const opt = {
-          margin:       5,
-          filename:     `全廠區${typeFilter === 'all' ? '' : typeFilter}點檢卡_${reportYear}年${reportHalf === 'H1' ? '上半年' : '下半年'}.pdf`,
-          image:        { type: 'jpeg', quality: 0.98 },
-          html2canvas:  { scale: 2, useCORS: true },
-          jsPDF:        { unit: 'mm', format: 'a4', orientation: 'landscape' },
-          pagebreak:    { mode: ['css', 'legacy'] }
-        };
-
-        setTimeout(() => {
-          window.html2pdf().set(opt).from(element).save().then(() => { setIsGeneratingPDF(false); }).catch(err => {
-            console.error("PDF 匯出失敗:", err);
-            setIsGeneratingPDF(false);
-            alert("PDF 匯出時發生錯誤，請嘗試使用「直接列印」並選擇「另存為 PDF」。");
-          });
-        }, 500);
+        window.html2pdf().set({ margin: 5, filename: `批次點檢卡_${year}_${half}.pdf`, jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' } }).from(element).save();
       };
 
       return (
-        <div className="space-y-4 animate-in fade-in">
-          <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
-            <h2 className="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2"><Icon name="Printer" size={22} className="text-blue-600"/> 全廠區點檢卡批次處理</h2>
-            <p className="text-sm text-gray-500 mb-4">選擇年度區間與設備種類後，系統會為廠區 {filteredEquipmentList.length} 筆設備產生專屬點檢卡。您可以全螢幕預覽，並選擇直接列印或匯出成 PDF 檔歸檔。</p>
-            
-            <div className="grid grid-cols-3 gap-2 mb-5">
-              <select className="border-2 border-gray-300 rounded-xl p-2.5 text-sm font-bold outline-none focus:border-blue-500" value={reportYear} onChange={e=>setReportYear(Number(e.target.value))}>
-                <option value={2026}>2026 年度</option><option value={2025}>2025 年度</option><option value={2024}>2024 年度</option>
-              </select>
-              <select className="border-2 border-gray-300 rounded-xl p-2.5 text-sm font-bold outline-none focus:border-blue-500" value={reportHalf} onChange={e=>setReportHalf(e.target.value)}>
-                <option value="H1">上半年 (1-6月)</option><option value="H2">下半年 (7-12月)</option>
-              </select>
-              <select className="border-2 border-gray-300 rounded-xl p-2.5 text-sm font-bold outline-none focus:border-blue-500" value={typeFilter} onChange={e=>setTypeFilter(e.target.value)}>
-                <option value="all">所有設備</option><option value="滅火器">僅滅火器</option><option value="消防栓">僅消防栓</option>
-              </select>
+        <div className="space-y-4">
+          <div className="bg-white p-6 rounded-xl border shadow-sm">
+            <h2 className="font-bold text-xl mb-4 flex items-center gap-2"><Icon name="Printer" size={24} className="text-blue-600"/> 批次列印設定</h2>
+            <div className="grid grid-cols-1 gap-4 mb-6">
+              <select className="border-2 p-3 rounded-lg outline-none font-bold" value={year} onChange={e=>setYear(e.target.value)}><option value={2026}>2026 年度</option><option value={2025}>2025 年度</option></select>
+              <select className="border-2 p-3 rounded-lg outline-none font-bold" value={half} onChange={e=>setHalf(e.target.value)}><option value="H1">上半年 (1-6月)</option><option value="H2">下半年 (7-12月)</option></select>
+              <select className="border-2 p-3 rounded-lg outline-none font-bold" value={type} onChange={e=>setType(e.target.value)}><option value="all">所有設備種類</option><option value="滅火器">僅印 滅火器</option><option value="消防栓">僅印 消防栓</option></select>
             </div>
-            
             <div className="flex gap-3">
-              <button onClick={onBack} className="w-1/3 py-3 bg-gray-100 rounded-xl font-bold hover:bg-gray-200 text-gray-700 flex justify-center items-center gap-2 transition-colors"><Icon name="ArrowLeft" size={18}/> 返回</button>
-              <button onClick={() => {setIsPreviewOpen(true); window.scrollTo(0,0);}} disabled={filteredEquipmentList.length === 0} className={`w-2/3 py-3 rounded-xl font-bold flex justify-center items-center gap-2 transition-colors ${filteredEquipmentList.length > 0 ? 'bg-blue-600 text-white shadow-md hover:bg-blue-700' : 'bg-gray-200 text-gray-400'}`}>
-                <Icon name="FileText" size={20}/> 產生批次預覽 ({filteredEquipmentList.length} 張)
-              </button>
+              <button onClick={onBack} className="flex-1 py-3 bg-gray-100 rounded-xl font-bold">取消返回</button>
+              <button onClick={()=>setShow(true)} className="flex-2 py-3 bg-blue-600 text-white rounded-xl font-bold shadow-md">產生預覽 ({list.length} 張)</button>
             </div>
           </div>
-
-          {isPreviewOpen && (
-            <div className="fixed inset-0 z-[300] bg-gray-200 flex flex-col animate-in fade-in zoom-in-95">
-              <header className="bg-gray-900 text-white p-3 sm:p-4 flex flex-wrap justify-between items-center shadow-lg print:hidden z-10 sticky top-0 gap-2">
-                <div className="flex items-center gap-2 sm:gap-4">
-                  <button onClick={() => setIsPreviewOpen(false)} className="bg-gray-700 hover:bg-gray-600 p-2 rounded-lg transition-colors flex items-center gap-1"><Icon name="XCircle" size={20} /> <span className="hidden sm:inline text-sm font-bold">關閉預覽</span></button>
-                  <span className="font-bold text-sm sm:text-base hidden md:inline">共 {filteredEquipmentList.length} 張點檢卡預覽</span>
-                </div>
-                <div className="flex gap-2 sm:gap-3">
-                  <button onClick={handleExportPDF} disabled={isGeneratingPDF} className={`px-3 py-2 rounded-lg font-bold flex items-center gap-1 sm:gap-2 text-sm transition-colors ${isGeneratingPDF ? 'bg-orange-400 text-white cursor-not-allowed' : 'bg-orange-500 hover:bg-orange-600 text-white shadow-md'}`}>
-                    <Icon name="Download" size={18} />{isGeneratingPDF ? 'PDF 打包中...' : '匯出 PDF 檔'}
-                  </button>
-                  <button onClick={() => window.print()} className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold flex items-center gap-1 sm:gap-2 shadow-md text-sm transition-colors">
-                    <Icon name="Printer" size={18} />直接列印
-                  </button>
+          {show && (
+            <div className="fixed inset-0 z-[300] bg-gray-200 flex flex-col overflow-hidden">
+              <header className="bg-gray-900 text-white p-4 flex justify-between items-center shadow-md print:hidden">
+                <button onClick={()=>setShow(false)} className="flex items-center gap-1 font-bold bg-gray-700 px-3 py-2 rounded-lg hover:bg-gray-600"><Icon name="XCircle" size={20}/> 關閉</button>
+                <div className="flex gap-3">
+                  <button onClick={handleExportPDF} className="bg-orange-500 px-4 py-2 rounded-lg font-bold flex items-center gap-2 hover:bg-orange-600"><Icon name="Download" size={18}/> PDF</button>
+                  <button onClick={()=>window.print()} className="bg-blue-600 px-4 py-2 rounded-lg font-bold flex items-center gap-2 hover:bg-blue-700"><Icon name="Printer" size={18}/> 列印</button>
                 </div>
               </header>
-
-              <div className="flex-1 overflow-y-auto p-4 sm:p-8" id="batch-print-content">
-                <div className="max-w-4xl mx-auto space-y-8 print:space-y-0 print:m-0 print:p-0">
-                  {filteredEquipmentList.map((eq, idx) => (
-                    <div key={eq.id} className="bg-white p-6 sm:p-10 rounded-lg shadow-xl print:shadow-none print:p-0 print:m-0 print:rounded-none relative" style={{ pageBreakAfter: 'always', breakAfter: 'page' }}>
-                      <div className="absolute top-2 right-2 text-gray-300 text-xs font-mono print:hidden">Page {idx + 1} / {filteredEquipmentList.length}</div>
-                      <InspectionCardUI equipment={eq} inspections={inspections} reportYear={reportYear} reportHalf={reportHalf} />
+              <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-white" id="batch-print-content">
+                <div className="max-w-4xl mx-auto">
+                  {list.map((eq, i) => (
+                    <div key={eq.id} className="mb-16 print:mb-0 print:break-after-page relative">
+                      <div className="absolute top-0 right-0 text-gray-300 text-xs print:hidden">Page {i+1}</div>
+                      <InspectionCardUI equipment={eq} inspections={inspections} reportYear={year} reportHalf={half} />
                     </div>
                   ))}
                 </div>
@@ -1197,196 +913,7 @@
       );
     }
 
-    // --- RecordList (歷史明細查詢) ---
-    // ⭐ 本次更新亮點：完美補齊「待確認」狀態，並升級為頂部獨立分頁按鈕！
-    function RecordList({ equipmentList, inspections }) {
-      const currentYear = new Date().getFullYear();
-      const currentMonth = new Date().getMonth() + 1;
-      const [queryMode, setQueryMode] = useState('all'); // 'all', 'uninspected', 'pending', 'done'
-      const [filterYear, setFilterYear] = useState(currentYear);
-      const [filterMonth, setFilterMonth] = useState(currentMonth);
-      const [filterStatus, setFilterStatus] = useState('all'); // 'all', 'normal', 'abnormal'
-      const [filterType, setFilterType] = useState('all');
-
-      useEffect(() => {
-        if (filterYear === 'all') setFilterYear(currentYear);
-        if (filterMonth === 'all') setFilterMonth(currentMonth);
-      }, [queryMode, currentYear, currentMonth, filterYear, filterMonth]);
-
-      // 為每筆檢驗紀錄附加對應的設備資訊
-      const recordsWithEq = inspections.map(record => ({ ...record, equipment: equipmentList.find(e => e.id === record.equipmentId) || {} }));
-
-      const filteredInspected = recordsWithEq.filter(record => {
-        if (filterYear !== 'all' && Number(record.year) !== Number(filterYear)) return false;
-        if (filterMonth !== 'all' && Number(record.month) !== Number(filterMonth)) return false;
-        if (filterType !== 'all' && record.equipment.type !== filterType) return false;
-        
-        // 異常/正常狀態過濾
-        if (filterStatus === 'abnormal' && !record.hasAbnormal) return false;
-        if (filterStatus === 'normal' && record.hasAbnormal) return false;
-
-        // 待確認/已完成 過濾
-        const isPending = !record.managerName || record.managerName === "";
-        if (queryMode === 'pending' && !isPending) return false;
-        if (queryMode === 'done' && isPending) return false;
-
-        return true;
-      }).map(r => ({ ...r, isUninspected: false }));
-
-      const filteredUninspected = equipmentList.filter(eq => {
-        if (filterYear === 'all' || filterMonth === 'all') return false; 
-        if (filterType !== 'all' && eq.type !== filterType) return false;
-        return !inspections.some(i => i.equipmentId === eq.id && Number(i.year) === Number(filterYear) && Number(i.month) === Number(filterMonth));
-      }).map(eq => ({
-        equipmentId: eq.id, equipment: eq, isUninspected: true, year: filterYear, month: filterMonth,
-        hasAbnormal: false, remark: '', inspectorName: '-', managerName: '-', weight: '', date: '-'
-      }));
-
-      let displayList = [];
-      if (queryMode === 'uninspected') {
-        displayList = filteredUninspected;
-      } else if (queryMode === 'pending' || queryMode === 'done') {
-        displayList = filteredInspected.sort((a, b) => new Date(b.date) - new Date(a.date));
-      } else {
-        displayList = [...filteredInspected, ...filteredUninspected].sort((a, b) => {
-           if (a.isUninspected && !b.isUninspected) return -1;
-           if (!a.isUninspected && b.isUninspected) return 1;
-           return a.equipmentId.localeCompare(b.equipmentId);
-        });
-      }
-
-      const handleExportCSV = () => {
-        if (displayList.length === 0) return;
-        try {
-          const headers = ['查詢年份', '查詢月份', '設備編號', '設備種類', '滅火器種類', '廠區', '樓層', '區域', '責任單位', '狀態', '巡檢時間', '檢查人姓名', '巡檢IP', '確認時間', '火源責任者姓名', '確認IP', '重量', '備註'];
-          const csvRows = [headers.join(',')];
-
-          displayList.forEach(record => {
-            const eq = record.equipment;
-            const statusLabel = record.isUninspected ? '尚未點檢' : (!record.managerName ? '待火源管理者確認' : (record.hasAbnormal ? '異常' : '正常'));
-            const row = [
-              record.year || filterYear, record.month || filterMonth, record.equipmentId, eq.type || '', eq.extinguisherType || '', eq.factory || '', eq.floor || '', eq.zone || '', eq.dept || '',
-              statusLabel, 
-              record.date || '-', record.inspectorName || '-', record.inspectorIp || '-', 
-              record.managerDate || '-', record.managerName || '-', record.managerIp || '-', 
-              record.weight || '-', `"${(record.remark || '').replace(/"/g, '""')}"`
-            ];
-            csvRows.push(row.join(','));
-          });
-
-          const csvContent = "\uFEFF" + csvRows.join('\n');
-          const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-          const url = URL.createObjectURL(blob);
-          const link = document.createElement('a');
-          link.href = url;
-          
-          let modeName = '全部明細';
-          if (queryMode === 'uninspected') modeName = '未點檢名單';
-          if (queryMode === 'pending') modeName = '待確認名單';
-          if (queryMode === 'done') modeName = '已完成點檢紀錄';
-          
-          link.setAttribute('download', `${modeName}_${filterYear}年${filterMonth !== 'all' ? filterMonth + '月' : '全'}.csv`);
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          URL.revokeObjectURL(url);
-        } catch (err) { alert("匯出失敗，若在預覽畫面中請另外開新分頁執行，或直接部署至伺服器。"); }
-      };
-
-      const disableExport = displayList.length === 0 || (filterYear === 'all' || filterMonth === 'all');
-
-      return (
-        <div className="space-y-4 animate-in fade-in">
-          <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-            <h2 className="font-bold text-gray-800 mb-4 flex items-center gap-2"><Icon name="History" size={20}/> 歷史明細查詢</h2>
-            
-            {/* ⭐ 將「待確認」升級為主分頁按鈕，與設備清單的操作邏輯完全一致！ */}
-            <div className="flex bg-gray-50 p-1 rounded-xl gap-1 mb-4 border border-gray-200">
-              <button onClick={()=>setQueryMode('all')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition ${queryMode==='all'?'bg-blue-600 text-white shadow-sm':'text-gray-500 hover:bg-gray-200'}`}>全部</button>
-              <button onClick={()=>setQueryMode('uninspected')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition ${queryMode==='uninspected'?'bg-red-600 text-white shadow-sm':'text-gray-500 hover:bg-gray-200'}`}>未點檢</button>
-              <button onClick={()=>setQueryMode('pending')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition ${queryMode==='pending'?'bg-yellow-500 text-white shadow-sm':'text-gray-500 hover:bg-gray-200'}`}>待確認</button>
-              <button onClick={()=>setQueryMode('done')} className={`flex-1 py-2 text-xs font-bold rounded-lg transition ${queryMode==='done'?'bg-green-600 text-white shadow-sm':'text-gray-500 hover:bg-gray-200'}`}>已完成</button>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-2 mb-3">
-              <select className="border border-gray-300 rounded-lg p-2 text-sm outline-none focus:border-blue-500" value={filterYear} onChange={e=>setFilterYear(e.target.value)}>
-                <option value={2026}>2026 年</option><option value={2025}>2025 年</option><option value={2024}>2024 年</option>
-              </select>
-              <select className="border border-gray-300 rounded-lg p-2 text-sm outline-none focus:border-blue-500" value={filterMonth} onChange={e=>setFilterMonth(e.target.value)}>
-                {[1,2,3,4,5,6,7,8,9,10,11,12].map(m => <option key={m} value={m}>{m} 月</option>)}
-              </select>
-              <select className="border border-gray-300 rounded-lg p-2 text-sm outline-none focus:border-blue-500" value={filterType} onChange={e=>setFilterType(e.target.value)}>
-                <option value="all">所有設備</option><option value="滅火器">滅火器</option><option value="消防栓">消防栓</option>
-              </select>
-              {/* 次要篩選器：保留正常與異常過濾，並在未點檢模式下停用 */}
-              <select 
-                className={`border border-gray-300 rounded-lg p-2 text-sm outline-none focus:border-blue-500 ${queryMode === 'uninspected' ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : ''}`} 
-                value={filterStatus} 
-                onChange={e=>setFilterStatus(e.target.value)}
-                disabled={queryMode === 'uninspected'}
-              >
-                <option value="all">正常/異常</option><option value="normal">僅正常</option><option value="abnormal">僅異常</option>
-              </select>
-            </div>
-            
-            <button onClick={handleExportCSV} disabled={disableExport} className={`w-full py-2.5 rounded-xl font-bold flex justify-center items-center gap-2 transition-colors ${!disableExport ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-md' : 'bg-gray-200 text-gray-400'}`}>
-              <Icon name="Download" size={18} />匯出 {displayList.length} 筆明細 (Excel)
-            </button>
-          </div>
-
-          <div className="space-y-3 pb-8">
-            <p className="text-xs text-gray-500 font-bold px-1">共找到 {displayList.length} 筆資料：</p>
-            {displayList.map((record, index) => {
-              const eq = record.equipment || {};
-              const isUninspected = record.isUninspected;
-              const isPending = !isUninspected && (!record.managerName || record.managerName === "");
-              
-              return (
-                <div key={`${record.equipmentId}-${index}`} className={`bg-white p-4 rounded-xl shadow-sm border ${isUninspected ? 'border-red-100 relative overflow-hidden' : (isPending ? 'border-yellow-200' : 'border-gray-100')} flex items-start gap-3`}>
-                  {isUninspected && <div className="absolute left-0 top-0 bottom-0 w-1 bg-red-400"></div>}
-                  {isPending && <div className="absolute left-0 top-0 bottom-0 w-1 bg-yellow-400"></div>}
-                  
-                  <div className={`mt-1 p-2 rounded-full ${isUninspected ? 'bg-red-50 text-red-500' : (record.hasAbnormal ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600')}`}>
-                    <Icon name={isUninspected ? "AlertTriangle" : (record.hasAbnormal ? "XCircle" : "CheckCircle2")} size={isUninspected ? 20 : 24} />
-                  </div>
-                  
-                  <div className="flex-1">
-                    <div className="flex justify-between items-start mb-1">
-                      <span className="font-bold text-gray-800 text-base">{record.equipmentId}</span>
-                      {isUninspected ? (
-                        <span className="text-xs font-bold text-red-600 bg-red-100 px-2 py-0.5 rounded">未點檢</span>
-                      ) : (
-                        <div className="text-right">
-                          <div className="text-[10px] text-gray-500 font-bold">巡檢: {record.date || '-'}</div>
-                          {record.managerDate ? (<div className="text-[10px] text-green-700 font-bold mt-0.5">確認: {record.managerDate}</div>) : (<div className="text-[10px] text-yellow-600 font-bold mt-0.5">待火源管理者確認</div>)}
-                        </div>
-                      )}
-                    </div>
-                    <div className="text-sm font-medium text-gray-700 mt-0.5">{eq.type}{eq.extinguisherType ? <span className="ml-1 text-xs text-gray-500 font-normal">({eq.extinguisherType})</span> : ''} - {eq.factory} ({eq.floor})</div>
-                    
-                    <div className="text-xs text-gray-500 mt-1 border-t pt-1">
-                      {isUninspected ? (<>{eq.location} | 責任：{eq.dept}</>) : (
-                        <div className="space-y-0.5 mt-1">
-                          <div><span className="font-bold">單位：</span>{eq.dept}</div>
-                          <div><span className="font-bold">巡檢員：</span>{record.inspectorName} <span className="text-[9px] text-gray-400">({record.inspectorIp || '未知IP'})</span></div>
-                          {record.managerName && <div><span className="font-bold text-green-700">確認者：</span>{record.managerName} <span className="text-[9px] text-gray-400">({record.managerIp || '未知IP'})</span></div>}
-                        </div>
-                      )}
-                    </div>
-                    
-                    {!isUninspected && record.weight && (<div className="text-xs text-blue-700 mt-1 bg-blue-50 inline-block px-2 py-0.5 rounded font-bold">測量重量：{record.weight}</div>)}
-                    {!isUninspected && record.hasAbnormal && record.remark && (<div className="text-xs text-red-700 mt-1 bg-red-50 p-2 rounded-lg border border-red-100"><strong>異常說明：</strong>{record.remark}</div>)}
-                  </div>
-                </div>
-              );
-            })}
-            {displayList.length === 0 && <div className="text-center py-10 text-gray-400 text-sm">此條件下查無任何資料</div>}
-          </div>
-        </div>
-      );
-    }
-
-    // --- 設備與人員管理員介面 ---
+    // ⭐ 完整恢復的管理員後台 (Admin) - 單筆編輯、刪除與使用者管理
     function EquipmentManager({ equipmentList, setDbEquipment, users, setDbUsers, apiUrl, setAlertMsg }) {
       const [adminTab, setAdminTab] = useState('equipment'); 
       const [editingEq, setEditingEq] = useState(null);
@@ -1426,7 +953,7 @@
             if (obj.id) newEquipmentList.push(obj);
           }
           setDbEquipment(newEquipmentList);
-          setAlertMsg(`成功匯入 ${newEquipmentList.length} 筆設備資料！\n(備註：目前僅更新本機快取，若需同步雲端請通知 IT 更新 Google Apps Script)`);
+          setAlertMsg(`成功匯入 ${newEquipmentList.length} 筆設備資料！\n(已更新本機快取，若需同步請重啟系統)`);
           if(fileInputRef.current) fileInputRef.current.value = '';
         };
         reader.readAsText(file);
@@ -1451,12 +978,12 @@
           }
           const finalUserList = newUserList.some(u => u.account === 'admin') ? newUserList : [{account: 'admin', password: '********', name: '系統管理員', role: 'admin', lastPasswordChange: new Date().toISOString()}, ...newUserList];
           setDbUsers(finalUserList);
-          setAlertMsg(`成功匯入 ${finalUserList.length} 筆人員資料！\n(正在背景同步至雲端...)`);
+          setAlertMsg(`成功匯入 ${finalUserList.length} 筆人員資料！`);
           if(userFileInputRef.current) userFileInputRef.current.value = '';
 
           if (apiUrl) {
             try { await fetch(apiUrl, { method: 'POST', body: JSON.stringify({ action: 'importUsers', secret: SYSTEM_SECRET_KEY, data: finalUserList }) }); } 
-            catch (err) { console.error("同步至 Google Sheets 失敗:", err); }
+            catch (err) { console.error("同步失敗:", err); }
           }
         };
         reader.readAsText(file);
@@ -1468,15 +995,15 @@
         const newEq = { id: formData.get('id').toUpperCase(), type: formData.get('type'), extinguisherType: formData.get('extinguisherType') || '', quantity: formData.get('quantity') || 1, factory: formData.get('factory') || '', floor: formData.get('floor') || '', zone: formData.get('zone') || '', location: formData.get('location') || '', dept: formData.get('dept') || '' };
 
         if (isAdding) {
-          if (equipmentList.some(eq => eq.id === newEq.id)) { setAlertMsg(`編號 ${newEq.id} 已存在，請使用不同編號。`); return; }
-          setDbEquipment([newEq, ...equipmentList]); setAlertMsg(`已成功新增設備：${newEq.id}`);
+          if (equipmentList.some(eq => eq.id === newEq.id)) { setAlertMsg(`編號 ${newEq.id} 已存在，請換一個。`); return; }
+          setDbEquipment([newEq, ...equipmentList]); setAlertMsg(`新增成功：${newEq.id}`);
         } else {
-          setDbEquipment(equipmentList.map(eq => eq.id === newEq.id ? newEq : eq)); setAlertMsg(`已成功更新設備：${newEq.id}`);
+          setDbEquipment(equipmentList.map(eq => eq.id === newEq.id ? newEq : eq)); setAlertMsg(`更新成功：${newEq.id}`);
         }
         setEditingEq(null); setIsAdding(false);
       };
 
-      const handleDelete = (id) => { if (window.confirm(`確定要刪除設備 ${id} 嗎？此操作將影響歷史紀錄關聯。`)) { setDbEquipment(equipmentList.filter(eq => eq.id !== id)); } };
+      const handleDelete = (id) => { if (window.confirm(`確定要刪除設備 ${id} 嗎？`)) { setDbEquipment(equipmentList.filter(eq => eq.id !== id)); } };
 
       const handleSaveUser = async (e) => {
         e.preventDefault();
@@ -1484,7 +1011,7 @@
         const isResetPassword = formData.get('resetPassword') === 'true'; 
         const inputPassword = formData.get('password').trim();
 
-        if (inputPassword !== '********' && !isPasswordComplexEnough(inputPassword)) { setAlertMsg('設定失敗：密碼必須包含大小寫英文及數字，且長度至少 8 碼。'); return; }
+        if (inputPassword !== '********' && !isPasswordComplexEnough(inputPassword)) { setAlertMsg('密碼需含大小寫英文及數字，至少8碼。'); return; }
 
         const newUser = { account: formData.get('account').trim(), password: inputPassword, name: formData.get('name').trim(), role: formData.get('role'), lastPasswordChange: (isAddingUser || isResetPassword) ? '' : (editingUser?.lastPasswordChange || '') };
         const actionType = isAddingUser ? 'addUser' : 'updateUser';
@@ -1494,22 +1021,22 @@
           setDbUsers([...users, newUser]);
         } else { setDbUsers(users.map(u => u.account === newUser.account ? newUser : u)); }
 
-        setAlertMsg(`系統已同步${isAddingUser ? '新增' : '更新'}人員資料：${newUser.name}`);
+        setAlertMsg(`${isAddingUser ? '新增' : '更新'}人員成功：${newUser.name}`);
         setEditingUser(null); setIsAddingUser(false); setShowUserPassword(false);
 
         if (apiUrl) {
           try { await fetch(apiUrl, { method: 'POST', body: JSON.stringify({ action: actionType, secret: SYSTEM_SECRET_KEY, account: newUser.account, data: newUser }) }); } 
-          catch (err) { console.error("同步使用者失敗:", err); }
+          catch (err) { console.error(err); }
         }
       };
 
       const handleDeleteUser = async (account) => {
-        if (account === 'admin') { alert("預設管理員帳號無法刪除！"); return; }
-        if (window.confirm(`確定要刪除帳號 ${account} 嗎？`)) {
+        if (account === 'admin') { alert("系統預設管理員無法刪除！"); return; }
+        if (window.confirm(`確定刪除帳號 ${account} 嗎？`)) {
           setDbUsers(users.filter(u => u.account !== account));
           if (apiUrl) {
             try { await fetch(apiUrl, { method: 'POST', body: JSON.stringify({ action: 'deleteUser', secret: SYSTEM_SECRET_KEY, account: account }) }); } 
-            catch (err) { console.error("刪除使用者同步失敗:", err); }
+            catch (err) { console.error(err); }
           }
         }
       };
@@ -1518,61 +1045,59 @@
       const filteredUsers = users.filter(u => (u.account || '').toLowerCase().includes(userSearchWord.toLowerCase()) || (u.name || '').toLowerCase().includes(userSearchWord.toLowerCase()));
 
       return (
-        <div className="space-y-4 animate-in fade-in pb-10">
+        <div className="space-y-4 pb-10">
           <div className="flex bg-gray-200 p-1 rounded-xl mb-4">
-            <button onClick={() => setAdminTab('equipment')} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-colors ${adminTab === 'equipment' ? 'bg-white text-blue-700 shadow' : 'text-gray-500 hover:text-gray-700'}`}>設備庫管理</button>
-            <button onClick={() => setAdminTab('users')} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-colors ${adminTab === 'users' ? 'bg-white text-purple-700 shadow' : 'text-gray-500 hover:text-gray-700'}`}>人員帳號管理</button>
+            <button onClick={() => setAdminTab('equipment')} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-colors ${adminTab === 'equipment' ? 'bg-white text-blue-700 shadow' : 'text-gray-500 hover:text-gray-700'}`}>設備管理</button>
+            <button onClick={() => setAdminTab('users')} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-colors ${adminTab === 'users' ? 'bg-white text-purple-700 shadow' : 'text-gray-500 hover:text-gray-700'}`}>人員管理</button>
           </div>
 
           {adminTab === 'equipment' && (
             <>
               {(editingEq || isAdding) && (
                 <div className="fixed inset-0 z-[250] bg-black/60 flex items-center justify-center p-4 backdrop-blur-sm">
-                  <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl animate-in zoom-in-95 overflow-hidden flex flex-col max-h-[90vh]">
-                    <header className="bg-gray-900 text-white p-4 flex justify-between items-center"><h2 className="font-bold flex items-center gap-2"><Icon name={isAdding ? "Plus" : "Edit"} size={20}/> {isAdding ? "新增設備" : "編輯設備"}</h2><button onClick={() => {setEditingEq(null); setIsAdding(false);}}><Icon name="XCircle" size={24}/></button></header>
+                  <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+                    <header className="bg-gray-900 text-white p-4 flex justify-between items-center"><h2 className="font-bold flex items-center gap-2"><Icon name={isAdding ? "Plus" : "Edit"} size={20}/> {isAdding ? "新增設備" : "編輯設備"}</h2><button type="button" onClick={() => {setEditingEq(null); setIsAdding(false);}}><Icon name="XCircle" size={24}/></button></header>
                     <form onSubmit={handleSaveEq} className="p-5 overflow-y-auto space-y-4">
-                      <div><label className="text-xs font-bold text-gray-500">設備編號 (ID) *</label><input name="id" defaultValue={editingEq?.id} readOnly={!isAdding} required className={`w-full border p-2.5 rounded-lg mt-1 outline-none ${!isAdding ? 'bg-gray-100 text-gray-500' : 'focus:border-blue-500'}`} placeholder="如 A001" /></div>
+                      <div><label className="text-xs font-bold text-gray-500">設備編號 (ID)</label><input name="id" defaultValue={editingEq?.id} readOnly={!isAdding} required className={`w-full border p-2.5 rounded-lg mt-1 outline-none ${!isAdding ? 'bg-gray-100 text-gray-500' : 'focus:border-blue-500'}`} /></div>
                       <div className="grid grid-cols-3 gap-3">
-                        <div className="col-span-1"><label className="text-xs font-bold text-gray-500">設備數量</label><input type="number" name="quantity" defaultValue={editingEq?.quantity || 1} min="1" className="w-full border p-2.5 rounded-lg mt-1 outline-none focus:border-blue-500" /></div>
-                        <div className="col-span-1"><label className="text-xs font-bold text-gray-500">設備種類 *</label><select name="type" defaultValue={editingEq?.type || '滅火器'} className="w-full border p-2.5 rounded-lg mt-1 outline-none focus:border-blue-500"><option>滅火器</option><option>消防栓</option></select></div>
-                        <div className="col-span-1"><label className="text-xs font-bold text-gray-500">滅火器類型</label><select name="extinguisherType" defaultValue={editingEq?.extinguisherType || ''} className="w-full border p-2.5 rounded-lg mt-1 outline-none focus:border-blue-500"><option value="">無</option><option>乾粉</option><option>CO2</option><option>泡沫</option></select></div>
+                        <div className="col-span-1"><label className="text-xs font-bold text-gray-500">數量</label><input type="number" name="quantity" defaultValue={editingEq?.quantity || 1} min="1" className="w-full border p-2.5 rounded-lg mt-1 outline-none focus:border-blue-500" /></div>
+                        <div className="col-span-1"><label className="text-xs font-bold text-gray-500">種類</label><select name="type" defaultValue={editingEq?.type || '滅火器'} className="w-full border p-2.5 rounded-lg mt-1 outline-none"><option>滅火器</option><option>消防栓</option></select></div>
+                        <div className="col-span-1"><label className="text-xs font-bold text-gray-500">子類型</label><select name="extinguisherType" defaultValue={editingEq?.extinguisherType || ''} className="w-full border p-2.5 rounded-lg mt-1 outline-none"><option value="">無</option><option>乾粉</option><option>CO2</option><option>泡沫</option></select></div>
                       </div>
                       <div className="grid grid-cols-2 gap-3">
-                        <div><label className="text-xs font-bold text-gray-500">廠區名稱</label><input name="factory" defaultValue={editingEq?.factory} className="w-full border p-2.5 rounded-lg mt-1 outline-none focus:border-blue-500" placeholder="如 第一工廠" /></div>
-                        <div><label className="text-xs font-bold text-gray-500">樓層</label><input name="floor" defaultValue={editingEq?.floor} className="w-full border p-2.5 rounded-lg mt-1 outline-none focus:border-blue-500" placeholder="如 1F" /></div>
+                        <div><label className="text-xs font-bold text-gray-500">廠區</label><input name="factory" defaultValue={editingEq?.factory} className="w-full border p-2.5 rounded-lg mt-1 outline-none focus:border-blue-500" /></div>
+                        <div><label className="text-xs font-bold text-gray-500">樓層</label><input name="floor" defaultValue={editingEq?.floor} className="w-full border p-2.5 rounded-lg mt-1 outline-none focus:border-blue-500" /></div>
                       </div>
                       <div className="grid grid-cols-2 gap-3">
-                        <div><label className="text-xs font-bold text-gray-500">責任單位</label><input name="dept" defaultValue={editingEq?.dept} className="w-full border p-2.5 rounded-lg mt-1 outline-none focus:border-blue-500" placeholder="如 總務部" /></div>
-                        <div><label className="text-xs font-bold text-gray-500">區域劃分</label><input name="zone" defaultValue={editingEq?.zone} className="w-full border p-2.5 rounded-lg mt-1 outline-none focus:border-blue-500" placeholder="如 梯廳" /></div>
+                        <div><label className="text-xs font-bold text-gray-500">單位</label><input name="dept" defaultValue={editingEq?.dept} className="w-full border p-2.5 rounded-lg mt-1 outline-none focus:border-blue-500" /></div>
+                        <div><label className="text-xs font-bold text-gray-500">區域</label><input name="zone" defaultValue={editingEq?.zone} className="w-full border p-2.5 rounded-lg mt-1 outline-none focus:border-blue-500" /></div>
                       </div>
-                      <div><label className="text-xs font-bold text-gray-500">詳細位置</label><input name="location" defaultValue={editingEq?.location} className="w-full border p-2.5 rounded-lg mt-1 outline-none focus:border-blue-500" placeholder="詳細位置描述" /></div>
-                      <button type="submit" className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold flex justify-center items-center gap-2 mt-4 shadow-md hover:bg-blue-700"><Icon name="Save" size={20}/> 儲存設備</button>
+                      <div><label className="text-xs font-bold text-gray-500">詳細位置</label><input name="location" defaultValue={editingEq?.location} className="w-full border p-2.5 rounded-lg mt-1 outline-none focus:border-blue-500" /></div>
+                      <button type="submit" className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold flex justify-center items-center gap-2 mt-4 shadow-md hover:bg-blue-700"><Icon name="Save" size={20}/> 儲存</button>
                     </form>
                   </div>
                 </div>
               )}
 
-              <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
-                <h2 className="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2"><Icon name="UploadCloud" size={22} className="text-blue-600"/> 批次匯入設備 CSV</h2>
-                <p className="text-sm text-gray-500 mb-4 leading-relaxed">您可以直接上傳以 Excel 編輯並另存為 `.csv` 格式的設備清單。上傳後將直接<strong className="text-red-600">覆蓋取代</strong>目前的清單資料。</p>
+              <div className="bg-white p-5 rounded-xl border shadow-sm">
+                <h2 className="text-lg font-bold mb-3 flex items-center gap-2"><Icon name="UploadCloud" size={22} className="text-blue-600"/> 匯入設備 CSV</h2>
                 <input type="file" accept=".csv" ref={fileInputRef} className="hidden" onChange={handleFileUpload} />
-                <div className="flex gap-3"><button onClick={() => fileInputRef.current.click()} className="flex-1 py-3 bg-blue-50 text-blue-700 border border-blue-200 rounded-xl font-bold hover:bg-blue-100 transition-colors flex justify-center items-center gap-2 shadow-sm"><Icon name="UploadCloud" size={18}/> 選擇 CSV 檔案並匯入</button></div>
+                <button onClick={() => fileInputRef.current.click()} className="w-full py-3 bg-blue-50 text-blue-700 border border-blue-200 rounded-xl font-bold flex justify-center items-center gap-2 shadow-sm"><Icon name="UploadCloud" size={18}/> 選擇檔案上傳</button>
               </div>
 
-              <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-                <div className="flex justify-between items-center mb-4"><h2 className="font-bold text-gray-800 flex items-center gap-2"><Icon name="Settings" size={20}/> 設備單筆管理</h2><button onClick={() => setIsAdding(true)} className="bg-green-600 text-white text-sm px-3 py-1.5 rounded-lg font-bold flex items-center gap-1 hover:bg-green-700 shadow-sm"><Icon name="Plus" size={16}/> 新增</button></div>
-                <div className="relative mb-4"><input type="text" placeholder="搜尋設備編號或位置..." className="w-full bg-gray-100 rounded-xl py-2.5 pl-10 pr-4 outline-none text-sm focus:ring-2 focus:ring-blue-200" value={searchWord} onChange={e=>setSearchWord(e.target.value)}/><Icon name="Search" size={18} className="absolute left-3 top-3 text-gray-400" /></div>
+              <div className="bg-white p-4 rounded-xl border shadow-sm">
+                <div className="flex justify-between items-center mb-4"><h2 className="font-bold flex items-center gap-2"><Icon name="Settings" size={20}/> 單筆管理</h2><button onClick={() => setIsAdding(true)} className="bg-green-600 text-white text-sm px-3 py-1.5 rounded-lg font-bold flex items-center gap-1 shadow-sm"><Icon name="Plus" size={16}/> 新增</button></div>
+                <div className="relative mb-4"><input type="text" placeholder="搜尋..." className="w-full bg-gray-100 rounded-xl py-2 pl-10 pr-4 outline-none text-sm" value={searchWord} onChange={e=>setSearchWord(e.target.value)}/><Icon name="Search" size={18} className="absolute left-3 top-2.5 text-gray-400" /></div>
                 <div className="space-y-3">
-                  <p className="text-xs text-gray-500 font-bold px-1">目前列管總計 {filteredList.length} 筆設備</p>
                   {filteredList.map((eq, index) => (
-                    <div key={`${eq.id}-${index}`} className="p-3 border border-gray-200 rounded-xl flex items-center justify-between bg-gray-50 hover:bg-white transition-colors">
+                    <div key={`${eq.id}-${index}`} className="p-3 border rounded-xl flex items-center justify-between bg-gray-50">
                       <div>
-                        <div className="font-bold text-gray-800 flex items-center gap-2">{eq.id} <span className="text-[10px] bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full">{eq.type}</span></div>
+                        <div className="font-bold flex items-center gap-2">{eq.id} <span className="text-[10px] bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full">{eq.type}</span></div>
                         <div className="text-xs text-gray-500 mt-1">{eq.factory} {eq.floor} | {eq.dept}</div>
                       </div>
                       <div className="flex gap-2">
-                        <button onClick={() => setEditingEq(eq)} className="p-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200"><Icon name="Edit" size={16}/></button>
-                        <button onClick={() => handleDelete(eq.id)} className="p-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200"><Icon name="Trash2" size={16}/></button>
+                        <button onClick={() => setEditingEq(eq)} className="p-2 bg-blue-100 text-blue-700 rounded-lg"><Icon name="Edit" size={16}/></button>
+                        <button onClick={() => handleDelete(eq.id)} className="p-2 bg-red-100 text-red-700 rounded-lg"><Icon name="Trash2" size={16}/></button>
                       </div>
                     </div>
                   ))}
@@ -1585,49 +1110,47 @@
             <>
               {(editingUser || isAddingUser) && (
                 <div className="fixed inset-0 z-[250] bg-black/60 flex items-center justify-center p-4 backdrop-blur-sm">
-                  <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl animate-in zoom-in-95 overflow-hidden flex flex-col">
-                    <header className="bg-purple-900 text-white p-4 flex justify-between items-center"><h2 className="font-bold flex items-center gap-2"><Icon name={isAddingUser ? "Plus" : "Edit"} size={20}/> {isAddingUser ? "新增人員" : "編輯人員"}</h2><button onClick={() => {setEditingUser(null); setIsAddingUser(false); setShowUserPassword(false);}}><Icon name="XCircle" size={24}/></button></header>
+                  <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col">
+                    <header className="bg-purple-900 text-white p-4 flex justify-between items-center"><h2 className="font-bold flex items-center gap-2"><Icon name={isAddingUser ? "Plus" : "Edit"} size={20}/> {isAddingUser ? "新增人員" : "編輯人員"}</h2><button type="button" onClick={() => {setEditingUser(null); setIsAddingUser(false); setShowUserPassword(false);}}><Icon name="XCircle" size={24}/></button></header>
                     <form onSubmit={handleSaveUser} className="p-5 space-y-4">
-                      <div><label className="text-xs font-bold text-gray-500 ml-1">登入帳號 *</label><input name="account" defaultValue={editingUser?.account} readOnly={!isAddingUser} required className={`w-full border-2 border-gray-200 rounded-xl p-2.5 mt-1 outline-none ${!isAddingUser ? 'bg-gray-100 text-gray-500' : 'focus:border-purple-500'}`} placeholder="如 user03" /></div>
-                      <div><label className="text-xs font-bold text-gray-500 ml-1">真實姓名 *</label><input name="name" defaultValue={editingUser?.name} required className="w-full border-2 border-gray-200 rounded-xl p-2.5 mt-1 outline-none focus:border-purple-500" placeholder="如 李大明" /></div>
+                      <div><label className="text-xs font-bold text-gray-500 ml-1">登入帳號 *</label><input name="account" defaultValue={editingUser?.account} readOnly={!isAddingUser} required className={`w-full border-2 rounded-xl p-2.5 mt-1 outline-none ${!isAddingUser ? 'bg-gray-100 text-gray-500' : 'focus:border-purple-500'}`} /></div>
+                      <div><label className="text-xs font-bold text-gray-500 ml-1">真實姓名 *</label><input name="name" defaultValue={editingUser?.name} required className="w-full border-2 rounded-xl p-2.5 mt-1 outline-none focus:border-purple-500" /></div>
                       <div className="grid grid-cols-2 gap-3">
                         <div>
                           <label className="text-xs font-bold text-gray-500 ml-1">登入密碼 *</label>
                           <div className="relative mt-1">
-                            <input name="password" type={showUserPassword ? "text" : "password"} defaultValue={editingUser?.password || ''} required className="w-full border-2 border-gray-200 rounded-xl p-2.5 outline-none focus:border-purple-500 pr-10 tracking-widest font-bold" placeholder="設定密碼" />
-                            <button type="button" onClick={() => setShowUserPassword(!showUserPassword)} className="absolute right-3 top-3.5 text-gray-400 hover:text-gray-600 focus:outline-none"><Icon name={showUserPassword ? "EyeOff" : "Eye"} size={18} /></button>
+                            <input name="password" type={showUserPassword ? "text" : "password"} defaultValue={editingUser?.password || ''} required className="w-full border-2 rounded-xl p-2.5 outline-none focus:border-purple-500 font-bold" />
+                            <button type="button" onClick={() => setShowUserPassword(!showUserPassword)} className="absolute right-3 top-3.5 text-gray-400"><Icon name={showUserPassword ? "EyeOff" : "Eye"} size={18} /></button>
                           </div>
-                          {!isAddingUser && (<div className="flex items-center gap-1 mt-2"><input type="checkbox" name="resetPassword" id="resetPassword" value="true" defaultChecked /><label htmlFor="resetPassword" className="text-[10px] text-red-600 font-bold">強制下次登入變更密碼</label></div>)}
+                          {!isAddingUser && (<div className="flex items-center gap-1 mt-2"><input type="checkbox" name="resetPassword" id="resetPassword" value="true" defaultChecked /><label htmlFor="resetPassword" className="text-[10px] text-red-600 font-bold">強制下次登入變更</label></div>)}
                         </div>
-                        <div><label className="text-xs font-bold text-gray-500 ml-1">系統權限 *</label><select name="role" defaultValue={editingUser?.role || 'user'} className="w-full border-2 border-gray-200 rounded-xl p-2.5 mt-1 outline-none focus:border-purple-500"><option value="user">一般巡檢員</option><option value="admin">系統管理員</option></select></div>
+                        <div><label className="text-xs font-bold text-gray-500 ml-1">權限 *</label><select name="role" defaultValue={editingUser?.role || 'user'} className="w-full border-2 rounded-xl p-2.5 mt-1 outline-none focus:border-purple-500"><option value="user">巡檢員</option><option value="admin">管理員</option></select></div>
                       </div>
-                      <button type="submit" className="w-full py-3 bg-purple-600 text-white rounded-xl font-bold flex justify-center items-center gap-2 mt-6 shadow-md hover:bg-purple-700"><Icon name="Save" size={20}/> 儲存人員資料</button>
+                      <button type="submit" className="w-full py-3 bg-purple-600 text-white rounded-xl font-bold flex justify-center items-center gap-2 shadow-md hover:bg-purple-700"><Icon name="Save" size={20}/> 儲存</button>
                     </form>
                   </div>
                 </div>
               )}
 
-              <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200 mb-4">
-                <h2 className="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2"><Icon name="UploadCloud" size={22} className="text-purple-600"/> 批次匯入人員 CSV</h2>
-                <p className="text-sm text-gray-500 mb-4 leading-relaxed">請上傳包含 `account`, `password`, `name`, `role` 欄位的 CSV 檔。匯入將<strong className="text-red-600">覆蓋取代</strong>目前的人員清單，但會為您保留預設的 admin 帳號防呆。</p>
+              <div className="bg-white p-5 rounded-xl border shadow-sm mb-4">
+                <h2 className="text-lg font-bold mb-3 flex items-center gap-2"><Icon name="UploadCloud" size={22} className="text-purple-600"/> 匯入人員 CSV</h2>
                 <input type="file" accept=".csv" ref={userFileInputRef} className="hidden" onChange={handleUserFileUpload} />
-                <div className="flex gap-3"><button onClick={() => userFileInputRef.current.click()} className="flex-1 py-3 bg-purple-50 text-purple-700 border border-purple-200 rounded-xl font-bold hover:bg-purple-100 transition-colors flex justify-center items-center gap-2 shadow-sm"><Icon name="UploadCloud" size={18}/> 選擇 CSV 檔案並匯入</button></div>
+                <button onClick={() => userFileInputRef.current.click()} className="w-full py-3 bg-purple-50 text-purple-700 border border-purple-200 rounded-xl font-bold flex justify-center items-center gap-2 shadow-sm"><Icon name="UploadCloud" size={18}/> 選擇檔案上傳</button>
               </div>
 
-              <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-                <div className="flex justify-between items-center mb-4"><h2 className="font-bold text-gray-800 flex items-center gap-2"><Icon name="Users" size={20}/> 人員帳號單筆管理</h2><button onClick={() => setIsAddingUser(true)} className="bg-purple-600 text-white text-sm px-3 py-1.5 rounded-lg font-bold flex items-center gap-1 hover:bg-purple-700 shadow-sm"><Icon name="Plus" size={16}/> 新增</button></div>
-                <div className="relative mb-4"><input type="text" placeholder="搜尋登入帳號或真實姓名..." className="w-full bg-gray-100 rounded-xl py-2.5 pl-10 pr-10 outline-none text-sm focus:ring-2 focus:ring-purple-200" value={userSearchWord} onChange={e=>setUserSearchWord(e.target.value)}/><Icon name="Search" size={18} className="absolute left-3 top-2.5 text-gray-400" />{userSearchWord && <button onClick={() => setUserSearchWord('')} className="absolute right-3 top-2.5 text-gray-400"><Icon name="XCircle" size={18}/></button>}</div>
+              <div className="bg-white p-4 rounded-xl border shadow-sm">
+                <div className="flex justify-between items-center mb-4"><h2 className="font-bold flex items-center gap-2"><Icon name="Users" size={20}/> 帳號管理</h2><button onClick={() => setIsAddingUser(true)} className="bg-purple-600 text-white text-sm px-3 py-1.5 rounded-lg font-bold flex items-center gap-1 shadow-sm"><Icon name="Plus" size={16}/> 新增</button></div>
+                <div className="relative mb-4"><input type="text" placeholder="搜尋帳號或姓名..." className="w-full bg-gray-100 rounded-xl py-2.5 pl-10 pr-4 outline-none text-sm" value={userSearchWord} onChange={e=>setUserSearchWord(e.target.value)}/><Icon name="Search" size={18} className="absolute left-3 top-2.5 text-gray-400" /></div>
                 <div className="space-y-3">
-                  <p className="text-xs text-gray-500 font-bold px-1">目前共計 {filteredUsers.length} 筆人員帳號</p>
                   {filteredUsers.map((u, idx) => (
-                    <div key={`${u.account}-${idx}`} className="p-3 border border-gray-200 rounded-xl flex items-center justify-between bg-gray-50 hover:bg-white transition-colors">
+                    <div key={`${u.account}-${idx}`} className="p-3 border rounded-xl flex items-center justify-between bg-gray-50">
                       <div className="flex items-center gap-3">
                         <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-white ${u.role === 'admin' ? 'bg-red-500' : 'bg-purple-500'}`}>{u.name.substring(0, 1)}</div>
-                        <div><div className="font-bold text-gray-800 flex items-center gap-2">{u.name} <span className={`text-[10px] px-2 py-0.5 rounded-full ${u.role === 'admin' ? 'bg-red-100 text-red-700' : 'bg-gray-200 text-gray-600'}`}>{u.role === 'admin' ? '管理員' : '巡檢員'}</span></div><div className="text-xs text-gray-500 mt-0.5">帳號：{u.account}</div></div>
+                        <div><div className="font-bold flex items-center gap-2">{u.name} <span className={`text-[10px] px-2 py-0.5 rounded-full ${u.role === 'admin' ? 'bg-red-100 text-red-700' : 'bg-gray-200 text-gray-600'}`}>{u.role === 'admin' ? '管理員' : '巡檢員'}</span></div><div className="text-xs text-gray-500 mt-0.5">帳號：{u.account}</div></div>
                       </div>
                       <div className="flex gap-2">
-                        <button onClick={() => setEditingUser(u)} className="p-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200"><Icon name="Edit" size={16}/></button>
-                        {u.account !== 'admin' && (<button onClick={() => handleDeleteUser(u.account)} className="p-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200"><Icon name="Trash2" size={16}/></button>)}
+                        <button onClick={() => setEditingUser(u)} className="p-2 bg-blue-100 text-blue-700 rounded-lg"><Icon name="Edit" size={16}/></button>
+                        {u.account !== 'admin' && (<button onClick={() => handleDeleteUser(u.account)} className="p-2 bg-red-100 text-red-700 rounded-lg"><Icon name="Trash2" size={16}/></button>)}
                       </div>
                     </div>
                   ))}
