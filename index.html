@@ -1344,7 +1344,7 @@
         const headers = ['年份', '月份', '設備編號', '設備種類', '廠區', '區域', '責任單位', '狀態', '巡檢時間', '檢查人姓名', '巡檢IP', '確認時間', '火源責任者姓名', '確認IP', '重量', '備註'];
         const csvRows = [headers.join(',')];
         list.forEach(r => {
-          const status = r.isUn ? '未點檢' : (!r.managerName ? '待火源責者確認' : (r.hasAbnormal ? '異常' : '正常'));
+          const status = r.isUn ? '未點檢' : (!r.managerName ? '待確認' : (r.hasAbnormal ? '異常' : '正常'));
           csvRows.push([
             fYear, fMonth, r.equipmentId, r.eq.type||'', r.eq.factory||'', r.eq.zone||'', r.eq.dept||'', 
             status, r.date||'-', r.inspectorName||'-', r.inspectorIp||'-', r.managerDate||'-', r.managerName||'-', r.managerIp||'-', r.weight||'-', `"${(r.remark||'').replace(/"/g,'""')}"`
