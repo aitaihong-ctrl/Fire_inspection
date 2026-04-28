@@ -1294,13 +1294,13 @@
                     </div>
                   </div>
 
-                  {/* ⭐ 火源責任者簽核按鈕區 (條件顯示) */}
+                  {/* ⭐ 火源責任者簽核按鈕區 (統一 flex-1 使按鈕等寬) */}
                   {s.code === 'pending' && (
                     <div className="flex gap-3 mt-4 pt-4 border-t border-gray-100">
                       <button onClick={(e)=>{e.stopPropagation(); onReject(eq.id);}} className="flex-1 py-2.5 bg-white border-2 border-red-200 hover:bg-red-50 text-red-600 rounded-xl text-sm font-bold flex items-center justify-center gap-1.5 transition-colors">
                         <Icon name="XCircle" size={18}/> 退回重檢
                       </button>
-                      <button onClick={(e)=>{e.stopPropagation(); onConfirm(eq.id);}} className="flex-2 py-2.5 bg-green-500 hover:bg-green-600 text-white rounded-xl text-sm font-bold shadow-md flex items-center justify-center gap-1.5 transition-colors">
+                      <button onClick={(e)=>{e.stopPropagation(); onConfirm(eq.id);}} className="flex-1 py-2.5 bg-green-500 hover:bg-green-600 text-white rounded-xl text-sm font-bold shadow-md flex items-center justify-center gap-1.5 transition-colors">
                         <Icon name="CheckCircle" size={18}/> 同意簽核
                       </button>
                     </div>
@@ -1408,7 +1408,7 @@
                 <div className="flex justify-between items-center mb-2">
                   <span className="font-black text-lg text-gray-800">{r.equipmentId} <span className="text-sm font-bold text-gray-500 ml-1">({r.eq.floor})</span></span>
                   <span className={`text-[11px] font-bold px-2.5 py-1 rounded-md border ${r.isUn ? 'bg-red-50 text-red-600 border-red-200' : (!r.managerName ? 'bg-yellow-50 text-yellow-700 border-yellow-300' : 'bg-green-50 text-green-700 border-green-200')}`}>
-                    {r.isUn ? '未點檢' : (!r.managerName ? '待確認' : '已完成')}
+                    {r.isUn ? '未點檢' : (!r.managerName ? '待火源責任者確認' : '已完成')}
                   </span>
                 </div>
                 <div className="text-sm font-bold text-gray-700 mb-3">
@@ -1418,12 +1418,12 @@
                 {!r.isUn && (
                   <div className="mt-4 pt-3 border-t border-gray-100 text-xs text-gray-600 flex flex-col gap-2">
                     <div className="flex justify-between items-center bg-gray-50 p-2.5 rounded-lg border border-gray-100">
-                      <span>巡檢: <strong className="text-gray-800">{r.inspectorName}</strong> <span className="text-[10px] text-gray-400">({r.inspectorIp})</span></span> 
+                      <span>巡檢人: <strong className="text-gray-800">{r.inspectorName}</strong> <span className="text-[10px] text-gray-400">({r.inspectorIp})</span></span> 
                       <span className="text-[10px] text-gray-500 font-medium">{r.date}</span>
                     </div>
                     {r.managerName && (
                       <div className="flex justify-between items-center bg-green-50 p-2.5 rounded-lg border border-green-100">
-                        <span className="text-green-800">確認: <strong>{r.managerName}</strong> <span className="text-[10px] text-green-600/70">({r.managerIp})</span></span> 
+                        <span className="text-green-800">火源責任者確認: <strong>{r.managerName}</strong> <span className="text-[10px] text-green-600/70">({r.managerIp})</span></span> 
                         <span className="text-[10px] text-green-700 font-medium">{r.managerDate}</span>
                       </div>
                     )}
