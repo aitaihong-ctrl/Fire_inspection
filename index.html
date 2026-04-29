@@ -977,7 +977,7 @@
           {needsType && (
             <div className="bg-yellow-50 p-5 rounded-2xl border-2 border-yellow-300 shadow-sm animate-in fade-in">
               <p className="text-sm font-bold mb-3 text-yellow-800 flex items-center gap-2">
-                <Icon name="AlertTriangle" size={20}/> 滅火器種類，請於現場確認：
+                <Icon name="AlertTriangle" size={20}/> 系統缺失種類，請於現場確認：
               </p>
               <div className="flex gap-3">
                 {['乾粉','CO2','泡沫'].map(t => (
@@ -1436,7 +1436,7 @@
                     </div>
                     {r.managerName && (
                       <div className="flex justify-between items-center bg-green-50 p-2.5 rounded-lg border border-green-100">
-                        <span className="text-green-800">源責任者確認: <strong>{r.managerName}</strong> <span className="text-[10px] text-green-600/70">({r.managerIp})</span></span> 
+                        <span className="text-green-800">火源責任者確認: <strong>{r.managerName}</strong> <span className="text-[10px] text-green-600/70">({r.managerIp})</span></span> 
                         <span className="text-[10px] text-green-700 font-medium">{r.managerDate}</span>
                       </div>
                     )}
@@ -1644,11 +1644,21 @@
               </div>
             </div>
             
+            {/* ⭐ 修復點：等寬按鈕與有效開啟預覽的點擊事件 */}
             <div className="flex gap-4">
               <button onClick={onBack} className="flex-1 py-4 bg-gray-100 hover:bg-gray-200 rounded-2xl font-bold text-gray-700 transition-colors">
                 取消返回
               </button>
-              <button onClick={()=>setShow(true)} className="flex-2 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-bold shadow-md transition-colors flex justify-center items-center gap-2">
+              <button 
+                onClick={() => {
+                  if(list.length > 0) {
+                    setShow(true);
+                    window.scrollTo(0, 0);
+                  }
+                }} 
+                disabled={list.length === 0}
+                className={`flex-1 py-4 rounded-2xl font-bold transition-colors flex justify-center items-center gap-2 shadow-md ${list.length > 0 ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}
+              >
                 <Icon name="FileText" size={20}/> 產生全螢幕預覽 ({list.length} 張)
               </button>
             </div>
@@ -1675,7 +1685,7 @@
                   {list.map((eq, i) => (
                     <div key={eq.id} className="bg-white p-8 md:p-12 rounded-2xl shadow-xl print:shadow-none print:rounded-none print:p-0 print:m-0 print:break-after-page relative">
                       <div className="absolute top-4 right-4 text-gray-300 text-xs font-bold font-mono print:hidden">Page {i+1} / {list.length}</div>
-                      <InspectionCardUI equipment={eq} inspections={inspections} reportYear={year} reportHalf={reportHalf} />
+                      <InspectionCardUI equipment={eq} inspections={inspections} reportYear={year} reportHalf={half} />
                     </div>
                   ))}
                 </div>
@@ -1702,7 +1712,6 @@
       const [showUserPassword, setShowUserPassword] = useState(false); 
       const [userSearchWord, setUserSearchWord] = useState('');
 
-      // ⭐ 新增部門篩選狀態
       const [deptFilter, setDeptFilter] = useState('all'); 
       const departments = [...new Set(equipmentList.map(eq => (eq.dept || '').toString().trim()))].filter(Boolean);
 
@@ -1859,7 +1868,6 @@
         }
       };
 
-      // ⭐ 包含部門篩選邏輯的陣列
       const filteredList = equipmentList.filter(eq => {
         const matchSearch = (eq.id || '').toLowerCase().includes(searchWord.toLowerCase()) || (eq.location || '').includes(searchWord);
         const matchDept = deptFilter === 'all' || (eq.dept || '').toString().trim() === deptFilter;
@@ -1959,7 +1967,6 @@
                   </button>
                 </div>
                 
-                {/* ⭐ 搜尋列與下拉部門選單 */}
                 <div className="flex flex-col sm:flex-row gap-3 mb-5">
                   <div className="relative flex-[2]">
                     <input type="text" placeholder="搜尋設備編號或位置..." className="w-full bg-gray-100 rounded-xl py-3.5 pl-11 pr-10 outline-none text-sm font-bold focus:ring-2 focus:ring-blue-200" value={searchWord} onChange={e=>setSearchWord(e.target.value)}/>
