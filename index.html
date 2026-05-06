@@ -63,7 +63,7 @@
     const apiKey = ""; // 🚨 Gemini API 整合 (選用)
 
     // ==========================================
-    // API 呼叫工具
+    // API 呼叫工具與全域時間校正
     // ==========================================
     const callGeminiAPI = async (prompt) => {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
@@ -87,6 +87,44 @@
         return data.ip;
       } catch (e) { 
         return "未知IP"; 
+      }
+    };
+
+    // 取得統一格式的本地時間字串
+    const getLocalFormattedTime = () => {
+      const d = new Date();
+      const y = d.getFullYear();
+      const m = d.getMonth() + 1;
+      const day = d.getDate();
+      let h = d.getHours();
+      const min = d.getMinutes().toString().padStart(2, '0');
+      const sec = d.getSeconds().toString().padStart(2, '0');
+      const ampm = h >= 12 ? '下午' : '上午';
+      const h12 = h % 12 || 12;
+      return `${y}/${m}/${day} ${ampm}${h12}:${min}:${sec}`;
+    };
+
+    // ⭐ 修復 Google Sheets 時區偏差並統一格式
+    const formatTimeDisplay = (dateStr) => {
+      if (!dateStr || dateStr === '-') return '';
+      try {
+        if (typeof dateStr === 'string' && dateStr.endsWith('Z')) {
+           const d = new Date(dateStr);
+           // 校正 Google Sheets 預設 PST 時區偏差
+           d.setUTCHours(d.getUTCHours() - 8); 
+           const y = d.getUTCFullYear();
+           const m = d.getUTCMonth() + 1;
+           const day = d.getUTCDate();
+           let h = d.getUTCHours();
+           const min = d.getUTCMinutes().toString().padStart(2, '0');
+           const sec = d.getUTCSeconds().toString().padStart(2, '0');
+           const ampm = h >= 12 ? '下午' : '上午';
+           const h12 = h % 12 || 12;
+           return `${y}/${m}/${day} ${ampm}${h12}:${min}:${sec}`;
+        }
+        return dateStr;
+      } catch (e) {
+        return dateStr;
       }
     };
 
@@ -184,6 +222,9 @@
       const [isLoading, setIsLoading] = useState(false);
       const [alertMsg, setAlertMsg] = useState('');
       
+      // ⭐ 加入自訂的 Confirm Dialog 狀態
+      const [confirmDialog, setConfirmDialog] = useState(null);
+      
       const [showPasswordChange, setShowPasswordChange] = useState(false);
       const [isForcePasswordChange, setIsForcePasswordChange] = useState(false);
 
@@ -209,8 +250,11 @@
           const resIns = await fetch(`${GOOGLE_SHEET_API_URL}?action=getInspections&secret=${safeSecret}`);
           const dataIns = await resIns.json();
           if (dataIns && !dataIns.error) {
+            // ⭐ 在取得資料的源頭，直接將不規則的日期格式統一化
             setInspections(dataIns.map(i => ({ 
               ...i, 
+              date: formatTimeDisplay(i.date),
+              managerDate: formatTimeDisplay(i.managerDate),
               answers: typeof i.answers === 'string' ? JSON.parse(i.answers) : i.answers, 
               hasAbnormal: String(i.hasAbnormal).toLowerCase() === 'true' 
             })));
@@ -252,8 +296,21 @@
       };
 
       const handleScan = (equipmentId) => {
-        const eq = dbEquipment.find(e => (e.id || '').toString().trim() === (equipmentId || '').toString().trim());
+        const cleanId = (equipmentId || '').toString().trim();
+        const eq = dbEquipment.find(e => (e.id || '').toString().trim() === cleanId);
+        
         if (eq) { 
+          const isAlreadyInspected = inspections.some(i => 
+            i.equipmentId === eq.id && 
+            Number(i.year) === Number(currentYear) && 
+            Number(i.month) === Number(currentMonth)
+          );
+
+          if (isAlreadyInspected) {
+            setAlertMsg(`設備 [${eq.id}] 本月已有巡檢紀錄！\n如需重新點檢，請聯繫火源責任者將原紀錄「退回」。`);
+            return;
+          }
+
           setScannedEq(eq); 
           navigateTo('form'); 
         } else { 
@@ -267,10 +324,11 @@
         const safeRecordId = (record.equipmentId || '').toString().trim();
         const currentIp = await getClientIp();
         
+        // ⭐ 使用統一的本地時間字串
         const newRecord = { 
           ...record, 
           equipmentId: safeRecordId, 
-          date: now.toLocaleString(), 
+          date: getLocalFormattedTime(), 
           month: now.getMonth() + 1, 
           year: now.getFullYear(), 
           inspectorIp: currentIp, 
@@ -318,7 +376,8 @@
       // 火源責任者確認：第二階段簽核
       const handleConfirmRecord = async (eqId) => {
         const ip = await getClientIp();
-        const confDate = new Date().toLocaleString();
+        // ⭐ 使用統一的本地時間字串
+        const confDate = getLocalFormattedTime();
         
         setInspections(prev => prev.map(i => {
           if (i.equipmentId === eqId && Number(i.year) === currentYear && Number(i.month) === currentMonth) {
@@ -348,38 +407,44 @@
       };
 
       // 火源責任者退回：刪除紀錄要求重檢
-      const handleRejectRecord = async (eqId) => {
-        if (!window.confirm("確定要「不同意」此點檢紀錄嗎？\n退回後該設備將恢復為「未點檢」狀態，巡檢員必須重新掃碼填報。")) return;
-        
-        setInspections(prev => prev.filter(i => !(i.equipmentId === eqId && Number(i.year) === currentYear && Number(i.month) === currentMonth)));
-        
-        if (GOOGLE_SHEET_API_URL) {
-          const payload = { action: 'rejectInspection', secret: SYSTEM_SECRET_KEY, equipmentId: eqId, year: currentYear, month: currentMonth };
-          try {
-            setIsLoading(true);
-            const res = await fetch(GOOGLE_SHEET_API_URL, { method: 'POST', body: JSON.stringify(payload) });
-            const data = await res.json();
-            if (data.status === 'success') { 
-              setAlertMsg("已退回，紀錄已刪除並要求重新點檢！"); 
-              fetchData(); 
-            } else { 
-              setAlertMsg("退回失敗，請重試。"); 
+      const handleRejectRecord = (eqId) => {
+        setConfirmDialog({
+          message: "確定要「不同意」此點檢紀錄嗎？\n退回後該設備將恢復為「未點檢」狀態，巡檢員必須重新掃碼填報。",
+          onConfirm: async () => {
+            setInspections(prev => prev.filter(i => !(i.equipmentId === eqId && Number(i.year) === currentYear && Number(i.month) === currentMonth)));
+            
+            if (GOOGLE_SHEET_API_URL) {
+              const payload = { action: 'rejectInspection', secret: SYSTEM_SECRET_KEY, equipmentId: eqId, year: currentYear, month: currentMonth };
+              try {
+                setIsLoading(true);
+                const res = await fetch(GOOGLE_SHEET_API_URL, { method: 'POST', body: JSON.stringify(payload) });
+                const data = await res.json();
+                if (data.status === 'success') { 
+                  setAlertMsg("已退回，紀錄已刪除並要求重新點檢！"); 
+                  fetchData(); 
+                } else { 
+                  setAlertMsg("退回失敗，請重試。"); 
+                }
+              } catch (e) { 
+                setAlertMsg("系統連線失敗。"); 
+              } finally { 
+                setIsLoading(false); 
+              }
+            } else {
+              setAlertMsg("已退回，要求重新點檢！(本機模式)");
             }
-          } catch (e) { 
-            setAlertMsg("系統連線失敗。"); 
-          } finally { 
-            setIsLoading(false); 
           }
-        } else {
-          setAlertMsg("已退回，要求重新點檢！(本機模式)");
-        }
+        });
       };
 
       const handleLogout = () => { 
-        if(window.confirm("確定要登出嗎？")) { 
-          setCurrentUser(null); 
-          setActiveTab('dashboard'); 
-        } 
+        setConfirmDialog({
+          message: "確定要登出系統嗎？",
+          onConfirm: () => {
+            setCurrentUser(null); 
+            setActiveTab('dashboard'); 
+          }
+        });
       };
 
       if (!currentUser) return <LoginScreen onLogin={handleLoginSuccess} apiUrl={GOOGLE_SHEET_API_URL} />;
@@ -390,10 +455,29 @@
 
       return (
         <div className="min-h-screen bg-gray-50 pb-20 font-sans text-gray-800 print:bg-white">
+          
+          {/* ⭐ 全局 Custom Confirm Modal (取代 window.confirm) */}
+          {confirmDialog && (
+            <div className="fixed inset-0 z-[250] bg-black/50 flex items-center justify-center p-4 backdrop-blur-sm">
+              <div className="bg-white rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl animate-in zoom-in-95">
+                <Icon name="AlertTriangle" size={56} className="mx-auto text-yellow-500 mb-5" />
+                <p className="text-lg font-bold mb-8 whitespace-pre-line text-gray-800 leading-relaxed">{confirmDialog.message}</p>
+                <div className="flex gap-4">
+                  <button onClick={() => setConfirmDialog(null)} className="flex-1 py-3.5 bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold rounded-2xl transition-colors">
+                    取消
+                  </button>
+                  <button onClick={() => { confirmDialog.onConfirm(); setConfirmDialog(null); }} className="flex-1 py-3.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-2xl shadow-md transition-colors">
+                    確定
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* 彈出提示視窗 */}
           {alertMsg && (
             <div className="fixed inset-0 z-[200] bg-black/50 flex items-center justify-center p-4">
-              <div className="bg-white rounded-2xl p-8 max-w-sm w-full text-center shadow-2xl">
+              <div className="bg-white rounded-2xl p-8 max-w-sm w-full text-center shadow-2xl animate-in zoom-in-95">
                 <Icon name="AlertTriangle" size={56} className="mx-auto text-yellow-500 mb-4" />
                 <p className="text-lg font-bold mb-6 whitespace-pre-line text-gray-800">{alertMsg}</p>
                 <button onClick={() => setAlertMsg('')} className="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl shadow-md transition-colors">
@@ -440,12 +524,13 @@
                 currentYear={currentYear} currentMonth={currentMonth} 
                 onDetail={(id) => navigateTo('detail', id)} 
                 onConfirm={handleConfirmRecord} onReject={handleRejectRecord} 
+                setAlertMsg={setAlertMsg}
               />
             )}
             {activeTab === 'detail' && selectedEqId && <InspectionReport equipment={dbEquipment.find(e => e.id === selectedEqId)} inspections={inspections} onBack={() => navigateTo('list')} />}
             {activeTab === 'records' && <RecordList equipmentList={dbEquipment} inspections={inspections} />}
-            {activeTab === 'batch-print' && <BatchPrintView equipmentList={dbEquipment} inspections={inspections} onBack={() => navigateTo('dashboard')} />}
-            {activeTab === 'admin' && <EquipmentManager equipmentList={dbEquipment} setDbEquipment={setDbEquipment} users={dbUsers} setDbUsers={setDbUsers} apiUrl={GOOGLE_SHEET_API_URL} setAlertMsg={setAlertMsg} />}
+            {activeTab === 'batch-print' && <BatchPrintView equipmentList={dbEquipment} inspections={inspections} onBack={() => navigateTo('dashboard')} setAlertMsg={setAlertMsg} />}
+            {activeTab === 'admin' && <EquipmentManager equipmentList={dbEquipment} setDbEquipment={setDbEquipment} users={dbUsers} setDbUsers={setDbUsers} apiUrl={GOOGLE_SHEET_API_URL} setAlertMsg={setAlertMsg} setConfirmDialog={setConfirmDialog} />}
             
             {activeTab === 'success' && (
               <div className="flex flex-col items-center justify-center py-20">
@@ -977,7 +1062,7 @@
           {needsType && (
             <div className="bg-yellow-50 p-5 rounded-2xl border-2 border-yellow-300 shadow-sm animate-in fade-in">
               <p className="text-sm font-bold mb-3 text-yellow-800 flex items-center gap-2">
-                <Icon name="AlertTriangle" size={20}/> 系統發現未設定種類，請於現場確認並選擇：
+                <Icon name="AlertTriangle" size={20}/> 系統缺失種類，請於現場確認：
               </p>
               <div className="flex gap-3">
                 {['乾粉','CO2','泡沫'].map(t => (
@@ -1076,7 +1161,6 @@
             </p>
           </div>
           
-          {/* ⭐ 修復點：按鍵 flex-1 均分寬度 */}
           <div className="flex gap-4 pt-2">
             <button onClick={onCancel} className="flex-1 py-4 bg-gray-200 text-gray-700 rounded-2xl font-bold hover:bg-gray-300 transition-colors">
               取消返回
@@ -1096,7 +1180,7 @@
     // ==========================================
     // 設備清單與二級簽核 (EquipmentList)
     // ==========================================
-    function EquipmentList({ equipmentList, inspections, currentYear, currentMonth, onDetail, onConfirm, onReject }) {
+    function EquipmentList({ equipmentList, inspections, currentYear, currentMonth, onDetail, onConfirm, onReject, setAlertMsg }) {
       const [filter, setFilter] = useState('all');
       const [deptFilter, setDeptFilter] = useState('all'); 
       const [typeFilter, setTypeFilter] = useState('all'); 
@@ -1140,7 +1224,7 @@
           document.body.removeChild(link);
           window.URL.revokeObjectURL(url);
         } catch (error) { 
-          alert("下載失敗，請長按圖片儲存"); 
+          if(setAlertMsg) setAlertMsg("下載失敗，請長按圖片儲存"); 
         }
       };
 
@@ -1431,12 +1515,13 @@
                 {!r.isUn && (
                   <div className="mt-4 pt-3 border-t border-gray-100 text-xs text-gray-600 flex flex-col gap-2">
                     <div className="flex justify-between items-center bg-gray-50 p-2.5 rounded-lg border border-gray-100">
-                      <span>巡檢人: <strong className="text-gray-800">{r.inspectorName}</strong> <span className="text-[10px] text-gray-400">({r.inspectorIp})</span></span> 
+                      <span>巡檢: <strong className="text-gray-800">{r.inspectorName}</strong> <span className="text-[10px] text-gray-400">({r.inspectorIp})</span></span> 
+                      {/* ⭐ 將格式化後的時間字串完美呈現 */}
                       <span className="text-[10px] text-gray-500 font-medium">{r.date}</span>
                     </div>
                     {r.managerName && (
                       <div className="flex justify-between items-center bg-green-50 p-2.5 rounded-lg border border-green-100">
-                        <span className="text-green-800">火源責任者確認: <strong>{r.managerName}</strong> <span className="text-[10px] text-green-600/70">({r.managerIp})</span></span> 
+                        <span className="text-green-800">確認: <strong>{r.managerName}</strong> <span className="text-[10px] text-green-600/70">({r.managerIp})</span></span> 
                         <span className="text-[10px] text-green-700 font-medium">{r.managerDate}</span>
                       </div>
                     )}
@@ -1588,7 +1673,7 @@
       );
     }
 
-    function BatchPrintView({ equipmentList, inspections, onBack }) {
+    function BatchPrintView({ equipmentList, inspections, onBack, setAlertMsg }) {
       const [year, setYear] = useState(new Date().getFullYear());
       const [half, setHalf] = useState(new Date().getMonth() + 1 <= 6 ? 'H1' : 'H2');
       const [type, setType] = useState('all');
@@ -1604,7 +1689,11 @@
       }, []);
 
       const handleExportPDF = () => {
-        if (!window.html2pdf) return alert("套件載入中，請稍候再試！");
+        if (!window.html2pdf) {
+          if (setAlertMsg) setAlertMsg("PDF 轉換套件尚未載入完成，請稍候幾秒再試！");
+          return;
+        }
+        
         const element = document.getElementById('batch-print-content');
         window.html2pdf().set({ 
           margin: 5, 
@@ -1644,7 +1733,6 @@
               </div>
             </div>
             
-            {/* ⭐ 修復點：等寬按鈕與有效開啟預覽的點擊事件 */}
             <div className="flex gap-4">
               <button onClick={onBack} className="flex-1 py-4 bg-gray-100 hover:bg-gray-200 rounded-2xl font-bold text-gray-700 transition-colors">
                 取消返回
@@ -1685,6 +1773,7 @@
                   {list.map((eq, i) => (
                     <div key={eq.id} className="bg-white p-8 md:p-12 rounded-2xl shadow-xl print:shadow-none print:rounded-none print:p-0 print:m-0 print:break-after-page relative">
                       <div className="absolute top-4 right-4 text-gray-300 text-xs font-bold font-mono print:hidden">Page {i+1} / {list.length}</div>
+                      {/* ⭐ 將 reportHalf={reportHalf} 更正為 reportHalf={half} */}
                       <InspectionCardUI equipment={eq} inspections={inspections} reportYear={year} reportHalf={half} />
                     </div>
                   ))}
@@ -1699,7 +1788,7 @@
     // ==========================================
     // 設備與權限管理員 (Admin)
     // ==========================================
-    function EquipmentManager({ equipmentList, setDbEquipment, users, setDbUsers, apiUrl, setAlertMsg }) {
+    function EquipmentManager({ equipmentList, setDbEquipment, users, setDbUsers, apiUrl, setAlertMsg, setConfirmDialog }) {
       const [adminTab, setAdminTab] = useState('equipment'); 
       const [editingEq, setEditingEq] = useState(null);
       const [isAdding, setIsAdding] = useState(false);
@@ -1816,9 +1905,14 @@
       };
 
       const handleDelete = (id) => { 
-        if (window.confirm(`確定要刪除設備 ${id} 嗎？`)) { 
-          setDbEquipment(equipmentList.filter(eq => eq.id !== id)); 
-        } 
+        if(setConfirmDialog) {
+          setConfirmDialog({
+            message: `確定要刪除設備 [${id}] 嗎？`,
+            onConfirm: () => {
+              setDbEquipment(equipmentList.filter(eq => eq.id !== id)); 
+            }
+          });
+        }
       };
 
       const handleSaveUser = async (e) => {
@@ -1858,13 +1952,22 @@
       };
 
       const handleDeleteUser = async (account) => {
-        if (account === 'admin') { alert("系統預設管理員無法刪除！"); return; }
-        if (window.confirm(`確定刪除帳號 ${account} 嗎？`)) {
-          setDbUsers(users.filter(u => u.account !== account));
-          if (apiUrl) {
-            try { await fetch(apiUrl, { method: 'POST', body: JSON.stringify({ action: 'deleteUser', secret: SYSTEM_SECRET_KEY, account: account }) }); } 
-            catch (err) { console.error(err); }
-          }
+        if (account === 'admin') { 
+          setAlertMsg("系統預設管理員無法刪除！"); 
+          return; 
+        }
+        
+        if (setConfirmDialog) {
+          setConfirmDialog({
+            message: `確定要刪除帳號 [${account}] 嗎？`,
+            onConfirm: async () => {
+              setDbUsers(users.filter(u => u.account !== account));
+              if (apiUrl) {
+                try { await fetch(apiUrl, { method: 'POST', body: JSON.stringify({ action: 'deleteUser', secret: SYSTEM_SECRET_KEY, account: account }) }); } 
+                catch (err) { console.error(err); }
+              }
+            }
+          });
         }
       };
 
