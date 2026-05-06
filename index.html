@@ -222,7 +222,6 @@
       const [isLoading, setIsLoading] = useState(false);
       const [alertMsg, setAlertMsg] = useState('');
       
-      // ⭐ 加入自訂的 Confirm Dialog 狀態
       const [confirmDialog, setConfirmDialog] = useState(null);
       
       const [showPasswordChange, setShowPasswordChange] = useState(false);
@@ -234,7 +233,11 @@
 
       const totalItems = dbEquipment.length;
       const currentMonthInspections = inspections.filter(i => Number(i.year) === Number(currentYear) && Number(i.month) === Number(currentMonth));
-      const completedItems = currentMonthInspections.length;
+      
+      // ⭐ 更新進度判定：有 managerName 簽核才算「已完成」，否則歸類為「待確認」
+      const completedItems = currentMonthInspections.filter(i => i.managerName).length;
+      const pendingItems = currentMonthInspections.filter(i => !i.managerName).length;
+      
       const abnormalRecords = currentMonthInspections.filter(i => i.hasAbnormal);
       const abnormalItems = abnormalRecords.length;
 
@@ -250,7 +253,6 @@
           const resIns = await fetch(`${GOOGLE_SHEET_API_URL}?action=getInspections&secret=${safeSecret}`);
           const dataIns = await resIns.json();
           if (dataIns && !dataIns.error) {
-            // ⭐ 在取得資料的源頭，直接將不規則的日期格式統一化
             setInspections(dataIns.map(i => ({ 
               ...i, 
               date: formatTimeDisplay(i.date),
@@ -318,13 +320,11 @@
         }
       };
 
-      // 提交表單：巡檢員送出第一階段
       const submitInspection = async (record, selectedTypeIfMissing, updatedQuantity) => {
         const now = new Date();
         const safeRecordId = (record.equipmentId || '').toString().trim();
         const currentIp = await getClientIp();
         
-        // ⭐ 使用統一的本地時間字串
         const newRecord = { 
           ...record, 
           equipmentId: safeRecordId, 
@@ -373,10 +373,8 @@
         }
       };
 
-      // 火源責任者確認：第二階段簽核
       const handleConfirmRecord = async (eqId) => {
         const ip = await getClientIp();
-        // ⭐ 使用統一的本地時間字串
         const confDate = getLocalFormattedTime();
         
         setInspections(prev => prev.map(i => {
@@ -406,7 +404,6 @@
         }
       };
 
-      // 火源責任者退回：刪除紀錄要求重檢
       const handleRejectRecord = (eqId) => {
         setConfirmDialog({
           message: "確定要「不同意」此點檢紀錄嗎？\n退回後該設備將恢復為「未點檢」狀態，巡檢員必須重新掃碼填報。",
@@ -455,8 +452,6 @@
 
       return (
         <div className="min-h-screen bg-gray-50 pb-20 font-sans text-gray-800 print:bg-white">
-          
-          {/* ⭐ 全局 Custom Confirm Modal (取代 window.confirm) */}
           {confirmDialog && (
             <div className="fixed inset-0 z-[250] bg-black/50 flex items-center justify-center p-4 backdrop-blur-sm">
               <div className="bg-white rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl animate-in zoom-in-95">
@@ -474,7 +469,6 @@
             </div>
           )}
 
-          {/* 彈出提示視窗 */}
           {alertMsg && (
             <div className="fixed inset-0 z-[200] bg-black/50 flex items-center justify-center p-4">
               <div className="bg-white rounded-2xl p-8 max-w-sm w-full text-center shadow-2xl animate-in zoom-in-95">
@@ -487,7 +481,6 @@
             </div>
           )}
 
-          {/* 頂部標題列 */}
           <header className="bg-red-700 text-white p-4 shadow-md sticky top-0 z-10 flex justify-between items-center print:hidden">
             <div className="flex items-center gap-2">
               <Icon name="FirefighterHose" size={28} className="text-yellow-300" />
@@ -507,11 +500,10 @@
             </div>
           </header>
 
-          {/* 主視圖區塊 */}
           <main className={`p-4 mx-auto print:max-w-none print:w-full print:p-0 print:m-0 ${activeTab === 'detail' || activeTab === 'batch-print' ? 'max-w-4xl' : 'max-w-lg'}`}>
             {activeTab === 'dashboard' && (
               <Dashboard 
-                total={totalItems} completed={completedItems} abnormal={abnormalItems} abnormalRecords={abnormalRecords} 
+                total={totalItems} completed={completedItems} pending={pendingItems} abnormal={abnormalItems} abnormalRecords={abnormalRecords} 
                 equipmentList={dbEquipment} currentYear={currentYear} currentMonth={currentMonth} 
                 onScan={() => navigateTo('scanner')} onViewList={() => navigateTo('list')} onBatchPrint={() => navigateTo('batch-print')} 
               />
@@ -540,7 +532,6 @@
             )}
           </main>
 
-          {/* 底部導覽列 */}
           <nav className="fixed bottom-0 w-full bg-white border-t border-gray-200 flex justify-around p-2 pb-5 shadow-[0_-4px_10px_rgba(0,0,0,0.05)] z-20 print:hidden">
             <button onClick={() => navigateTo('dashboard')} className={`flex flex-col items-center p-2 w-1/5 ${activeTab === 'dashboard' ? 'text-red-700' : 'text-gray-400'}`}>
               <Icon name="Home" size={26} />
@@ -736,7 +727,7 @@
     // ==========================================
     // 首頁與 AI 總結 (Dashboard)
     // ==========================================
-    function Dashboard({ total, completed, abnormal, abnormalRecords, equipmentList, currentYear, currentMonth, onScan, onViewList, onBatchPrint }) {
+    function Dashboard({ total, completed, pending, abnormal, abnormalRecords, equipmentList, currentYear, currentMonth, onScan, onViewList, onBatchPrint }) {
       const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
       const [aiSummary, setAiSummary] = useState('');
       const [isGeneratingAI, setIsGeneratingAI] = useState(false);
@@ -744,7 +735,8 @@
       const handleGenerateAISummary = async () => {
         setIsGeneratingAI(true);
         try {
-          let prompt = `請以專業且簡潔的繁體中文，為 ${currentYear} 年 ${currentMonth} 月的「廠區消防設備點檢」撰寫一份 150 字以內的高階主管總結報告。\n本月數據：列管總設備數 ${total} 支，已完成巡檢 ${completed} 支，發現異常設備 ${abnormal} 支。\n`;
+          // ⭐ AI Prompt 同步更新，加入待確認數量
+          let prompt = `請以專業且簡潔的繁體中文，為 ${currentYear} 年 ${currentMonth} 月的「廠區消防設備點檢」撰寫一份 150 字以內的高階主管總結報告。\n本月數據：列管總設備數 ${total} 支，已完成簽核 ${completed} 支，待主管確認 ${pending} 支，發現異常設備 ${abnormal} 支。\n`;
           if (abnormal > 0) {
             prompt += `異常設備明細如下：\n`;
             abnormalRecords.forEach(rec => {
@@ -824,6 +816,11 @@
                 <div className="flex justify-between items-center border-b pb-2">
                   <span className="text-sm font-bold text-gray-500">已完成</span>
                   <span className="font-black text-lg text-green-600">{completed} 支</span>
+                </div>
+                {/* ⭐ 新增待確認列 */}
+                <div className="flex justify-between items-center border-b pb-2">
+                  <span className="text-sm font-bold text-gray-500">待確認</span>
+                  <span className="font-black text-lg text-yellow-500">{pending} 支</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm font-bold text-gray-500">異常數</span>
@@ -999,7 +996,6 @@
       const needsType = isExt && !equipment.extinguisherType;
       const finalType = equipment.extinguisherType || tempType;
       
-      // ⭐ 確保重量檢查正確運作
       const needsWeight = isExt && (finalType === 'CO2' || finalType === '泡沫');
       
       const [answers, setAnswers] = useState(questions.reduce((acc, q) => ({ ...acc, [q.id]: 'pending' }), {}));
@@ -1007,7 +1003,6 @@
       const [weight, setWeight] = useState('');
       const [quantity, setQuantity] = useState(equipment.quantity || 1);
       
-      // ⭐ 完成條件判斷：包含「重量不能為空白」
       const isComplete = Object.values(answers).every(v=>v!=='pending') && (!isExt || finalType) && (!needsWeight || weight.trim() !== '');
 
       const handleAIAssist = async () => {
@@ -1257,7 +1252,6 @@
       return (
         <div className="space-y-4 animate-in fade-in">
           
-          {/* QR 掃描跳窗 */}
           {showScannerModal && (
             <div className="fixed inset-0 z-[100] bg-gray-50 flex flex-col animate-in slide-in-from-bottom-4">
               <header className="bg-gray-900 text-white p-4 flex justify-between items-center">
@@ -1270,7 +1264,6 @@
             </div>
           )}
 
-          {/* 單獨 QR 顯示跳窗 */}
           {selectedQrEq && (
             <div className="fixed inset-0 z-[200] bg-black/60 flex items-center justify-center p-4 backdrop-blur-sm" onClick={() => setSelectedQrEq(null)}>
               <div className="bg-white rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden animate-in zoom-in-95" onClick={e => e.stopPropagation()}>
@@ -1304,7 +1297,6 @@
             </div>
           )}
 
-          {/* 搜尋與過濾區塊 */}
           <div className="bg-white p-5 rounded-2xl shadow-sm sticky top-16 z-0 border border-gray-100">
             <div className="flex gap-3 mb-4">
               <div className="relative flex-1">
@@ -1333,7 +1325,6 @@
               </select>
             </div>
             
-            {/* ⭐ 彩色狀態過濾按鈕群 */}
             <div className="flex bg-white p-1.5 rounded-xl gap-1 border border-gray-200 shadow-sm">
               {[
                 { val: 'all', label: '全部', activeClass: 'bg-blue-600 text-white shadow-md', inactiveClass: 'text-blue-600 bg-blue-50 hover:bg-blue-100' },
@@ -1351,7 +1342,6 @@
             </div>
           </div>
 
-          {/* 清單顯示區塊 */}
           <div className="space-y-4 pb-8">
             <div className="px-2 flex justify-between items-center text-xs font-bold text-gray-500">
               <span>共找到 {filtered.length} 筆資料</span>
@@ -1390,7 +1380,6 @@
                     </div>
                   </div>
 
-                  {/* ⭐ 火源責任者簽核按鈕區 (統一 flex-1 使按鈕等寬) */}
                   {s.code === 'pending' && (
                     <div className="flex gap-3 mt-4 pt-4 border-t border-gray-100">
                       <button onClick={(e)=>{e.stopPropagation(); onReject(eq.id);}} className="flex-1 py-2.5 bg-white border-2 border-red-200 hover:bg-red-50 text-red-600 rounded-xl text-sm font-bold flex items-center justify-center gap-1.5 transition-colors">
@@ -1460,7 +1449,6 @@
               <Icon name="History" size={22} className="text-blue-600"/> 歷史明細與匯出
             </h2>
             
-            {/* ⭐ 彩色狀態過濾按鈕群 */}
             <div className="flex bg-white p-1.5 rounded-xl gap-1 mb-5 border border-gray-200 shadow-sm">
               {[
                 { val: 'all', label: '全部', activeClass: 'bg-blue-600 text-white shadow-md', inactiveClass: 'text-blue-600 bg-blue-50 hover:bg-blue-100' },
@@ -1516,7 +1504,6 @@
                   <div className="mt-4 pt-3 border-t border-gray-100 text-xs text-gray-600 flex flex-col gap-2">
                     <div className="flex justify-between items-center bg-gray-50 p-2.5 rounded-lg border border-gray-100">
                       <span>巡檢人: <strong className="text-gray-800">{r.inspectorName}</strong> <span className="text-[10px] text-gray-400">({r.inspectorIp})</span></span> 
-                      {/* ⭐ 將格式化後的時間字串完美呈現 */}
                       <span className="text-[10px] text-gray-500 font-medium">{r.date}</span>
                     </div>
                     {r.managerName && (
@@ -1752,7 +1739,6 @@
             </div>
           </div>
 
-          {/* 滿版預覽視窗 */}
           {show && (
             <div className="fixed inset-0 z-[300] bg-gray-200 flex flex-col overflow-hidden animate-in zoom-in-95">
               <header className="bg-gray-900 text-white p-4 flex justify-between items-center shadow-lg print:hidden">
@@ -1773,7 +1759,6 @@
                   {list.map((eq, i) => (
                     <div key={eq.id} className="bg-white p-8 md:p-12 rounded-2xl shadow-xl print:shadow-none print:rounded-none print:p-0 print:m-0 print:break-after-page relative">
                       <div className="absolute top-4 right-4 text-gray-300 text-xs font-bold font-mono print:hidden">Page {i+1} / {list.length}</div>
-                      {/* ⭐ 將 reportHalf={reportHalf} 更正為 reportHalf={half} */}
                       <InspectionCardUI equipment={eq} inspections={inspections} reportYear={year} reportHalf={half} />
                     </div>
                   ))}
@@ -1866,7 +1851,6 @@
             if (!obj.lastPasswordChange) obj.lastPasswordChange = ''; 
             if (obj.account) newUserList.push(obj);
           }
-          // 防呆：確保必定有 admin 帳號
           const finalUserList = newUserList.some(u => u.account === 'admin') ? newUserList : [{account: 'admin', password: '********', name: '系統管理員', role: 'admin', lastPasswordChange: new Date().toISOString()}, ...newUserList];
           
           setDbUsers(finalUserList);
@@ -1988,7 +1972,6 @@
 
           {adminTab === 'equipment' && (
             <>
-              {/* 設備編輯 Modal */}
               {(editingEq || isAdding) && (
                 <div className="fixed inset-0 z-[250] bg-black/60 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
                   <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
@@ -2115,7 +2098,6 @@
 
           {adminTab === 'users' && (
             <>
-              {/* 人員編輯 Modal */}
               {(editingUser || isAddingUser) && (
                 <div className="fixed inset-0 z-[250] bg-black/60 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
                   <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col">
