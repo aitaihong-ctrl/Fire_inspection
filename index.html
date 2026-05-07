@@ -658,6 +658,11 @@
               </div>
             </form>
           </div>
+          
+          {/* 版權宣告字樣 - 變更密碼頁面 */}
+          <div className="mt-8 text-center text-[11px] text-gray-400 font-bold tracking-wider">
+            &copy; {new Date().getFullYear()} TCI廠區消防設備點檢系統. All rights reserved.
+          </div>
         </div>
       );
     }
@@ -693,7 +698,7 @@
       };
 
       return (
-        <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
+        <div className="min-h-screen bg-gray-100 flex flex-col items-center justify-center p-4">
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm p-8 animate-in zoom-in-95">
             <div className="w-24 h-24 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
               <Icon name="Lock" size={48} className="text-red-600" />
@@ -719,6 +724,11 @@
                 {isLoggingIn ? '驗證中...' : '安全登入'}
               </button>
             </form>
+          </div>
+          
+          {/* 版權宣告字樣 - 改為彈性跟隨在登入框下方，確保不會被遮擋 */}
+          <div className="mt-8 text-center text-[11px] text-gray-400 font-bold tracking-wider">
+            &copy; {new Date().getFullYear()} TCI廠區消防設備點檢系統. All rights reserved.
           </div>
         </div>
       );
