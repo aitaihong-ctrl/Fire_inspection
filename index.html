@@ -659,7 +659,6 @@
             </form>
           </div>
           
-          {/* 版權宣告字樣 - 變更密碼頁面 */}
           <div className="mt-8 text-center text-[11px] text-gray-400 font-bold tracking-wider">
             &copy; {new Date().getFullYear()} TCI廠區消防設備點檢系統. All rights reserved.
           </div>
@@ -726,7 +725,6 @@
             </form>
           </div>
           
-          {/* 版權宣告字樣 - 改為彈性跟隨在登入框下方，確保不會被遮擋 */}
           <div className="mt-8 text-center text-[11px] text-gray-400 font-bold tracking-wider">
             &copy; {new Date().getFullYear()} TCI廠區消防設備點檢系統. All rights reserved.
           </div>
@@ -1632,7 +1630,8 @@
             <p>備註:火源責任者由管理幹部擔當(組級以上人員)，檢查人員為現場單位指派之人員。</p>
             <div className="flex justify-between text-[10px]">
               <span>FORM NO : {formNo}</span>
-              <span>REV-C</span>
+              {/* ⭐ 這裡依據 isExt 條件判斷版本號 */}
+              <span>{isExt ? 'REV-E' : 'REV-C'}</span>
             </div>
           </div>
         </div>
