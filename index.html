@@ -744,7 +744,7 @@
         setIsGeneratingAI(true);
         try {
           // ⭐ AI Prompt 同步更新，加入待確認數量
-          let prompt = `請以專業且簡潔的繁體中文，為 ${currentYear} 年 ${currentMonth} 月的「廠區消防設備點檢」撰寫一份 150 字以內的高階主管總結報告。\n本月數據：列管總設備數 ${total} 支，已完成簽核 ${completed} 支，待主管確認 ${pending} 支，發現異常設備 ${abnormal} 支。\n`;
+          let prompt = `請以專業且簡潔的繁體中文，為 ${currentYear} 年 ${currentMonth} 月的「廠區消防設備點檢」撰寫一份 150 字以內的高階主管總結報告。\n本月數據：列管總設備數 ${total} 筆，已完成簽核 ${completed} 筆，待主管確認 ${pending} 筆，發現異常設備 ${abnormal} 筆。\n`;
           if (abnormal > 0) {
             prompt += `異常設備明細如下：\n`;
             abnormalRecords.forEach(rec => {
