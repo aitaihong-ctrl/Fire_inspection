@@ -62,7 +62,7 @@
     const SYSTEM_SECRET_KEY = "TCI_FireSafety_2026_!@#";
     const apiKey = ""; // 🚨 Gemini API 整合 (選用)
 
-    // ==========================================
+    //    // ==========================================
     // API 呼叫工具與全域時間校正
     // ==========================================
     const callGeminiAPI = async (prompt) => {
@@ -90,7 +90,6 @@
       }
     };
 
-    // 取得統一格式的本地時間字串
     const getLocalFormattedTime = () => {
       const d = new Date();
       const y = d.getFullYear();
@@ -104,13 +103,11 @@
       return `${y}/${m}/${day} ${ampm}${h12}:${min}:${sec}`;
     };
 
-    // ⭐ 修復 Google Sheets 時區偏差並統一格式
     const formatTimeDisplay = (dateStr) => {
       if (!dateStr || dateStr === '-') return '';
       try {
         if (typeof dateStr === 'string' && dateStr.endsWith('Z')) {
            const d = new Date(dateStr);
-           // 校正 Google Sheets 預設 PST 時區偏差
            d.setUTCHours(d.getUTCHours() - 8); 
            const y = d.getUTCFullYear();
            const m = d.getUTCMonth() + 1;
@@ -128,9 +125,6 @@
       }
     };
 
-    // ==========================================
-    // 基礎設定與參數
-    // ==========================================
     const EXTINGUISHER_QUESTIONS = [
       { id: 'q1', text: '壓力錶頭保持在綠色區及重量量測公斤數 (小數點一位)' },
       { id: 'q2', text: '鋼瓶瓶身是否銹蝕' },
@@ -147,7 +141,7 @@
       { id: 'q5', text: '閥門是否有漏水現象?' }
     ];
 
-    // ==========================================
+    //    // ==========================================
     // 圖示組件
     // ==========================================
     const Icon = ({ name, size = 24, className = "" }) => {
@@ -208,7 +202,7 @@
       return diff > 90; 
     }
 
-    // ==========================================
+    //    // ==========================================
     // 主程式組件 (App)
     // ==========================================
     function App() {
@@ -234,7 +228,6 @@
       const totalItems = dbEquipment.length;
       const currentMonthInspections = inspections.filter(i => Number(i.year) === Number(currentYear) && Number(i.month) === Number(currentMonth));
       
-      // ⭐ 更新進度判定：有 managerName 簽核才算「已完成」，否則歸類為「待確認」
       const completedItems = currentMonthInspections.filter(i => i.managerName).length;
       const pendingItems = currentMonthInspections.filter(i => !i.managerName).length;
       
@@ -522,7 +515,7 @@
             {activeTab === 'detail' && selectedEqId && <InspectionReport equipment={dbEquipment.find(e => e.id === selectedEqId)} inspections={inspections} onBack={() => navigateTo('list')} />}
             {activeTab === 'records' && <RecordList equipmentList={dbEquipment} inspections={inspections} />}
             {activeTab === 'batch-print' && <BatchPrintView equipmentList={dbEquipment} inspections={inspections} onBack={() => navigateTo('dashboard')} setAlertMsg={setAlertMsg} />}
-            {activeTab === 'admin' && <EquipmentManager equipmentList={dbEquipment} setDbEquipment={setDbEquipment} users={dbUsers} setDbUsers={setDbUsers} apiUrl={GOOGLE_SHEET_API_URL} setAlertMsg={setAlertMsg} setConfirmDialog={setConfirmDialog} />}
+            {activeTab === 'admin' && <EquipmentManager currentUser={currentUser} equipmentList={dbEquipment} setDbEquipment={setDbEquipment} users={dbUsers} setDbUsers={setDbUsers} apiUrl={GOOGLE_SHEET_API_URL} setAlertMsg={setAlertMsg} setConfirmDialog={setConfirmDialog} />}
             
             {activeTab === 'success' && (
               <div className="flex flex-col items-center justify-center py-20">
@@ -564,7 +557,7 @@
       );
     }
 
-    // ==========================================
+    //    // ==========================================
     // 登入與安全設定
     // ==========================================
     function ChangePasswordScreen({ user, isForced, apiUrl, onSuccess, onCancel }) {
@@ -658,10 +651,7 @@
               </div>
             </form>
           </div>
-          
-          <div className="mt-8 text-center text-[11px] text-gray-400 font-bold tracking-wider">
-            &copy; {new Date().getFullYear()} TCI廠區消防設備點檢系統. All rights reserved.
-          </div>
+          <div className="mt-8 text-center text-[11px] text-gray-400 font-bold tracking-wider">&copy; {new Date().getFullYear()} TCI廠區消防設備點檢系統. All rights reserved.</div>
         </div>
       );
     }
@@ -724,15 +714,12 @@
               </button>
             </form>
           </div>
-          
-          <div className="mt-8 text-center text-[11px] text-gray-400 font-bold tracking-wider">
-            &copy; {new Date().getFullYear()} TCI廠區消防設備點檢系統. All rights reserved.
-          </div>
+          <div className="mt-8 text-center text-[11px] text-gray-400 font-bold tracking-wider">&copy; {new Date().getFullYear()} TCI廠區消防設備點檢系統. All rights reserved.</div>
         </div>
       );
     }
 
-    // ==========================================
+    //    // ==========================================
     // 首頁與 AI 總結 (Dashboard)
     // ==========================================
     function Dashboard({ total, completed, pending, abnormal, abnormalRecords, equipmentList, currentYear, currentMonth, onScan, onViewList, onBatchPrint }) {
@@ -743,7 +730,6 @@
       const handleGenerateAISummary = async () => {
         setIsGeneratingAI(true);
         try {
-          // ⭐ AI Prompt 同步更新，加入待確認數量
           let prompt = `請以專業且簡潔的繁體中文，為 ${currentYear} 年 ${currentMonth} 月的「廠區消防設備點檢」撰寫一份 150 字以內的高階主管總結報告。\n本月數據：列管總設備數 ${total} 筆，已完成簽核 ${completed} 筆，待主管確認 ${pending} 筆，發現異常設備 ${abnormal} 筆。\n`;
           if (abnormal > 0) {
             prompt += `異常設備明細如下：\n`;
@@ -773,12 +759,10 @@
             </div>
           )}
 
-          {/* AI 總結區塊 */}
           <div className="bg-white rounded-3xl shadow-sm border border-purple-100 p-6 relative overflow-hidden">
              <div className="flex items-center justify-between mb-4">
                <h2 className="text-purple-800 font-bold flex items-center gap-2 text-lg">
-                 <Icon name="Sparkles" size={24} className="text-purple-500" /> 
-                 AI 安檢總結報告
+                 <Icon name="Sparkles" size={24} className="text-purple-500" /> AI 安檢總結報告
                </h2>
              </div>
              
@@ -818,21 +802,16 @@
               </div>
               <div className="flex-1 ml-8 space-y-4">
                 <div className="flex justify-between items-center border-b pb-2">
-                  <span className="text-sm font-bold text-gray-500">列管總數</span>
-                  <span className="font-black text-lg text-gray-800">{total} 筆</span>
+                  <span className="text-sm font-bold text-gray-500">列管總數</span><span className="font-black text-lg text-gray-800">{total} 筆</span>
                 </div>
                 <div className="flex justify-between items-center border-b pb-2">
-                  <span className="text-sm font-bold text-gray-500">已完成</span>
-                  <span className="font-black text-lg text-green-600">{completed} 筆</span>
+                  <span className="text-sm font-bold text-gray-500">已完成</span><span className="font-black text-lg text-green-600">{completed} 筆</span>
                 </div>
-                {/* ⭐ 新增待確認列 */}
                 <div className="flex justify-between items-center border-b pb-2">
-                  <span className="text-sm font-bold text-gray-500">待確認</span>
-                  <span className="font-black text-lg text-yellow-500">{pending} 筆</span>
+                  <span className="text-sm font-bold text-gray-500">待確認</span><span className="font-black text-lg text-yellow-500">{pending} 筆</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-sm font-bold text-gray-500">異常數</span>
-                  <span className="font-black text-lg text-red-600">{abnormal} 筆</span>
+                  <span className="text-sm font-bold text-gray-500">異常數</span><span className="font-black text-lg text-red-600">{abnormal} 筆</span>
                 </div>
               </div>
             </div>
@@ -886,7 +865,7 @@
       );
     }
 
-    // ==========================================
+    //    // ==========================================
     // 現場掃碼 (Scanner)
     // ==========================================
     function Scanner({ onScan, mockEquipment }) {
@@ -920,17 +899,15 @@
             ctx.drawImage(videoRef.current, 0, 0, canvasRef.current.width, canvasRef.current.height);
             const img = ctx.getImageData(0, 0, canvasRef.current.width, canvasRef.current.height);
             
-            // 辨識 QR Code
             const code = window.jsQR(img.data, img.width, img.height, { inversionAttempts: "dontInvert" });
             if (code && code.data) { 
               onScan(code.data.trim().toUpperCase()); 
-              return; // 掃到就停止
+              return;
             }
           }
           ani = requestAnimationFrame(tick);
         };
         
-        // 動態載入 jsQR 套件
         if (!window.jsQR) {
           const script = document.createElement('script');
           script.src = "https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js";
@@ -961,27 +938,16 @@
           
           <div className="mt-6 w-full bg-white p-5 rounded-3xl border border-gray-100 shadow-sm">
             <h3 className="text-sm font-bold text-gray-500 mb-3 flex items-center gap-2"><Icon name="Search" size={16}/> 無相機時手動選擇</h3>
-            <select 
-              className="w-full p-3 border-2 border-gray-200 rounded-xl outline-none focus:border-red-500 font-bold text-gray-700" 
-              value={selectedDept} 
-              onChange={e=>setSelectedDept(e.target.value)}
-            >
+            <select className="w-full p-3 border-2 border-gray-200 rounded-xl outline-none focus:border-red-500 font-bold text-gray-700" value={selectedDept} onChange={e=>setSelectedDept(e.target.value)}>
               <option value="">-- 請先選擇責任單位 --</option>
               {departments.map(d => <option key={d} value={d}>{d}</option>)}
             </select>
             
             <div className="flex flex-col gap-2 mt-4 max-h-56 overflow-y-auto pr-1">
               {mockEquipment.filter(e => !selectedDept || e.dept === selectedDept).map(e => (
-                <button 
-                  key={e.id} 
-                  onClick={() => onScan(e.id)} 
-                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-left hover:bg-red-50 hover:text-red-700 hover:border-red-200 transition-colors flex justify-between items-center shadow-sm"
-                >
+                <button key={e.id} onClick={() => onScan(e.id)} className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-left hover:bg-red-50 hover:text-red-700 hover:border-red-200 transition-colors flex justify-between items-center shadow-sm">
                   <div>
-                    <div className="font-bold text-gray-800">
-                      {e.id} 
-                      <span className="text-[10px] font-normal text-gray-500 ml-1">({e.type})</span>
-                    </div>
+                    <div className="font-bold text-gray-800">{e.id} <span className="text-[10px] font-normal text-gray-500 ml-1">({e.type})</span></div>
                     <div className="text-xs text-gray-500 mt-1.5 font-medium">{e.location}</div>
                   </div>
                   <Icon name="ChevronRight" size={18} className="text-gray-300" />
@@ -993,7 +959,7 @@
       );
     }
 
-    // ==========================================
+    //    // ==========================================
     // 填寫點檢表單
     // ==========================================
     function InspectionForm({ equipment, currentUser, onSubmit, onCancel }) {
@@ -1013,6 +979,7 @@
       
       const isComplete = Object.values(answers).every(v=>v!=='pending') && (!isExt || finalType) && (!needsWeight || weight.trim() !== '');
 
+      const [isGeneratingAI, setIsGeneratingAI] = useState(false);
       const handleAIAssist = async () => {
         setIsGeneratingAI(true);
         try {
@@ -1031,32 +998,21 @@
         }
       };
 
-      const [isGeneratingAI, setIsGeneratingAI] = useState(false);
-
       return (
         <div className="space-y-5 animate-in slide-in-from-right-4">
-          
           <div className="bg-white p-5 rounded-2xl shadow-sm border-l-8 border-red-600 flex justify-between items-center">
             <div>
               <div className="flex items-center gap-2 mb-2">
                 <span className="text-xs font-bold bg-gray-200 text-gray-700 px-2.5 py-1 rounded-md">{equipment.factory}</span>
                 <span className="text-xs font-bold bg-gray-200 text-gray-700 px-2.5 py-1 rounded-md">{equipment.dept}</span>
               </div>
-              <h2 className="text-2xl font-black text-gray-800">
-                {equipment.id} {equipment.type} {equipment.extinguisherType ? `(${equipment.extinguisherType})` : ''}
-              </h2>
+              <h2 className="text-2xl font-black text-gray-800">{equipment.id} {equipment.type} {equipment.extinguisherType ? `(${equipment.extinguisherType})` : ''}</h2>
               <p className="text-sm text-gray-500 mt-1">{equipment.location}</p>
             </div>
-            
             <div className="flex flex-col items-end">
               <label className="text-[11px] text-gray-500 font-bold mb-1.5">設備數量</label>
               <div className="flex items-center gap-1.5">
-                <input 
-                  type="number" min="1" 
-                  value={quantity} 
-                  onChange={e=>setQuantity(e.target.value)} 
-                  className="w-16 border-2 border-gray-300 rounded-xl p-1.5 text-center font-black text-lg outline-none focus:border-red-500" 
-                />
+                <input type="number" min="1" value={quantity} onChange={e=>setQuantity(e.target.value)} className="w-16 border-2 border-gray-300 rounded-xl p-1.5 text-center font-black text-lg outline-none focus:border-red-500" />
                 <span className="text-sm font-bold text-gray-700">支</span>
               </div>
             </div>
@@ -1064,18 +1020,10 @@
           
           {needsType && (
             <div className="bg-yellow-50 p-5 rounded-2xl border-2 border-yellow-300 shadow-sm animate-in fade-in">
-              <p className="text-sm font-bold mb-3 text-yellow-800 flex items-center gap-2">
-                <Icon name="AlertTriangle" size={20}/> 系統缺失種類，請於現場確認：
-              </p>
+              <p className="text-sm font-bold mb-3 text-yellow-800 flex items-center gap-2"><Icon name="AlertTriangle" size={20}/> 系統缺失種類，請於現場確認：</p>
               <div className="flex gap-3">
                 {['乾粉','CO2','泡沫'].map(t => (
-                  <button 
-                    key={t} 
-                    onClick={()=>setTempType(t)} 
-                    className={`flex-1 py-3 rounded-xl border-2 font-bold transition-all ${tempType===t ? 'bg-yellow-500 border-yellow-600 text-white shadow-inner transform scale-95' : 'bg-white text-yellow-700 hover:bg-yellow-100'}`}
-                  >
-                    {t}
-                  </button>
+                  <button key={t} onClick={()=>setTempType(t)} className={`flex-1 py-3 rounded-xl border-2 font-bold transition-all ${tempType===t ? 'bg-yellow-500 border-yellow-600 text-white shadow-inner transform scale-95' : 'bg-white text-yellow-700 hover:bg-yellow-100'}`}>{t}</button>
                 ))}
               </div>
             </div>
@@ -1084,47 +1032,22 @@
           <div className="bg-white p-5 rounded-2xl shadow-sm space-y-4">
             <div className="flex justify-between items-center border-b border-gray-100 pb-3">
               <h3 className="font-bold text-lg text-gray-800">檢查項目</h3>
-              <button 
-                onClick={() => setAnswers(questions.reduce((acc, q) => ({ ...acc, [q.id]: 'normal' }), {}))} 
-                className="text-sm bg-green-100 text-green-700 px-4 py-2 rounded-xl font-bold hover:bg-green-200 transition-colors shadow-sm"
-              >
-                一鍵全正常
-              </button>
+              <button onClick={() => setAnswers(questions.reduce((acc, q) => ({ ...acc, [q.id]: 'normal' }), {}))} className="text-sm bg-green-100 text-green-700 px-4 py-2 rounded-xl font-bold hover:bg-green-200 transition-colors shadow-sm">一鍵全正常</button>
             </div>
             
             {questions.map((q, i) => (
               <div key={q.id} className="p-4 bg-gray-50 rounded-2xl border border-gray-100">
-                <p className="text-sm mb-3 font-bold text-gray-700 leading-relaxed">
-                  <span className="text-red-600 mr-1">{i+1}.</span> {q.text}
-                </p>
-                
+                <p className="text-sm mb-3 font-bold text-gray-700 leading-relaxed"><span className="text-red-600 mr-1">{i+1}.</span> {q.text}</p>
                 {isExt && q.id==='q1' && (finalType==='CO2'||finalType==='泡沫') && (
                   <div className="mb-4 flex items-center gap-3 bg-blue-50 p-3 rounded-xl border border-blue-100">
                     <span className="text-sm font-bold text-blue-800">實際測量重量:</span>
-                    <input 
-                      type="number" step="0.1" 
-                      value={weight} 
-                      onChange={e=>setWeight(e.target.value)} 
-                      className="w-24 border-2 border-blue-200 rounded-lg p-1.5 text-center font-bold outline-none focus:border-blue-500" 
-                      placeholder="00.0"
-                    /> 
+                    <input type="number" step="0.1" value={weight} onChange={e=>setWeight(e.target.value)} className="w-24 border-2 border-blue-200 rounded-lg p-1.5 text-center font-bold outline-none focus:border-blue-500" placeholder="00.0"/> 
                     <span className="font-bold text-blue-800">kg</span>
                   </div>
                 )}
-                
                 <div className="flex gap-3">
-                  <button 
-                    onClick={()=>setAnswers(p=>({...p,[q.id]:'normal'}))} 
-                    className={`flex-1 py-3 rounded-xl border-2 font-bold flex justify-center items-center gap-2 transition-all ${answers[q.id]==='normal'?'bg-green-50 border-green-500 text-green-700 shadow-inner':'bg-white text-gray-500 hover:bg-gray-100'}`}
-                  >
-                    <Icon name="CheckCircle" size={18}/> 正常
-                  </button>
-                  <button 
-                    onClick={()=>setAnswers(p=>({...p,[q.id]:'abnormal'}))} 
-                    className={`flex-1 py-3 rounded-xl border-2 font-bold flex justify-center items-center gap-2 transition-all ${answers[q.id]==='abnormal'?'bg-red-50 border-red-500 text-red-700 shadow-inner':'bg-white text-gray-500 hover:bg-gray-100'}`}
-                  >
-                    <Icon name="XCircle" size={18}/> 異常
-                  </button>
+                  <button onClick={()=>setAnswers(p=>({...p,[q.id]:'normal'}))} className={`flex-1 py-3 rounded-xl border-2 font-bold flex justify-center items-center gap-2 transition-all ${answers[q.id]==='normal'?'bg-green-50 border-green-500 text-green-700 shadow-inner':'bg-white text-gray-500 hover:bg-gray-100'}`}><Icon name="CheckCircle" size={18}/> 正常</button>
+                  <button onClick={()=>setAnswers(p=>({...p,[q.id]:'abnormal'}))} className={`flex-1 py-3 rounded-xl border-2 font-bold flex justify-center items-center gap-2 transition-all ${answers[q.id]==='abnormal'?'bg-red-50 border-red-500 text-red-700 shadow-inner':'bg-white text-gray-500 hover:bg-gray-100'}`}><Icon name="XCircle" size={18}/> 異常</button>
                 </div>
               </div>
             ))}
@@ -1134,53 +1057,27 @@
             <div className="bg-red-50 p-5 rounded-2xl border border-red-200 animate-in fade-in">
               <div className="flex justify-between items-center mb-3">
                 <label className="text-sm font-bold text-red-800 block">異常備註說明：</label>
-                <button 
-                  onClick={handleAIAssist} 
-                  disabled={isGeneratingAI} 
-                  className={`text-xs font-bold px-3 py-1.5 rounded-lg flex items-center gap-1 transition-colors shadow-sm ${isGeneratingAI ? 'ai-bg-shimmer text-purple-700 cursor-wait' : 'bg-purple-100 text-purple-700 hover:bg-purple-200'}`}
-                >
-                  {isGeneratingAI ? '產生中...' : '✨ AI 改善建議'}
-                </button>
+                <button onClick={handleAIAssist} disabled={isGeneratingAI} className={`text-xs font-bold px-3 py-1.5 rounded-lg flex items-center gap-1 transition-colors shadow-sm ${isGeneratingAI ? 'ai-bg-shimmer text-purple-700 cursor-wait' : 'bg-purple-100 text-purple-700 hover:bg-purple-200'}`}>{isGeneratingAI ? '產生中...' : '✨ AI 改善建議'}</button>
               </div>
-              <textarea 
-                value={remark} 
-                onChange={e=>setRemark(e.target.value)} 
-                className="w-full p-4 border-2 border-red-200 rounded-xl outline-none focus:border-red-400 font-medium leading-relaxed" 
-                rows="4" 
-                placeholder="請詳細描述損壞狀況，或點擊上方按鈕由 AI 協助填寫..." 
-              />
+              <textarea value={remark} onChange={e=>setRemark(e.target.value)} className="w-full p-4 border-2 border-red-200 rounded-xl outline-none focus:border-red-400 font-medium leading-relaxed" rows="4" placeholder="請詳細描述損壞狀況，或點擊上方按鈕由 AI 協助填寫..." />
             </div>
           )}
           
           <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
-            <h3 className="font-bold text-sm mb-3 flex items-center gap-2 text-gray-800">
-              <Icon name="PenTool" size={18} /> 點檢人電子簽章
-            </h3>
-            <div className="w-full border-2 border-gray-200 p-4 bg-gray-100 rounded-xl text-gray-600 font-bold flex items-center gap-3">
-              <Icon name="Lock" size={18} /> {currentUser.name}
-            </div>
-            <p className="text-xs text-yellow-600 font-bold mt-3 bg-yellow-50 p-2 rounded-lg inline-block border border-yellow-200">
-              ※ 送出後，將自動發送交由火源責任者進行確認簽核。
-            </p>
+            <h3 className="font-bold text-sm mb-3 flex items-center gap-2 text-gray-800"><Icon name="PenTool" size={18} /> 點檢人電子簽章</h3>
+            <div className="w-full border-2 border-gray-200 p-4 bg-gray-100 rounded-xl text-gray-600 font-bold flex items-center gap-3"><Icon name="Lock" size={18} /> {currentUser.name}</div>
+            <p className="text-xs text-yellow-600 font-bold mt-3 bg-yellow-50 p-2 rounded-lg inline-block border border-yellow-200">※ 送出後，將自動發送交由火源責任者進行確認簽核。</p>
           </div>
           
           <div className="flex gap-4 pt-2">
-            <button onClick={onCancel} className="flex-1 py-4 bg-gray-200 text-gray-700 rounded-2xl font-bold hover:bg-gray-300 transition-colors">
-              取消返回
-            </button>
-            <button 
-              onClick={()=>onSubmit({equipmentId:equipment.id, answers, weight: needsWeight ? weight : undefined, hasAbnormal:Object.values(answers).includes('abnormal'), remark, inspectorName:currentUser.name}, tempType, quantity)} 
-              disabled={!isComplete} 
-              className={`flex-1 py-4 rounded-2xl font-bold text-lg text-white transition-all ${isComplete ? 'bg-red-600 hover:bg-red-700 shadow-lg' : 'bg-gray-300 cursor-not-allowed'}`}
-            >
-              送出點檢表
-            </button>
+            <button onClick={onCancel} className="flex-1 py-4 bg-gray-200 text-gray-700 rounded-2xl font-bold hover:bg-gray-300 transition-colors">取消返回</button>
+            <button onClick={()=>onSubmit({equipmentId:equipment.id, answers, weight: needsWeight ? weight : undefined, hasAbnormal:Object.values(answers).includes('abnormal'), remark, inspectorName:currentUser.name}, tempType, quantity)} disabled={!isComplete} className={`flex-1 py-4 rounded-2xl font-bold text-lg text-white transition-all ${isComplete ? 'bg-red-600 hover:bg-red-700 shadow-lg' : 'bg-gray-300 cursor-not-allowed'}`}>送出點檢表</button>
           </div>
         </div>
       );
     }
 
-    // ==========================================
+    //    // ==========================================
     // 設備清單與二級簽核 (EquipmentList)
     // ==========================================
     function EquipmentList({ equipmentList, inspections, currentYear, currentMonth, onDetail, onConfirm, onReject, setAlertMsg }) {
@@ -1259,7 +1156,6 @@
 
       return (
         <div className="space-y-4 animate-in fade-in">
-          
           {showScannerModal && (
             <div className="fixed inset-0 z-[100] bg-gray-50 flex flex-col animate-in slide-in-from-bottom-4">
               <header className="bg-gray-900 text-white p-4 flex justify-between items-center">
@@ -1283,23 +1179,14 @@
                   <div className="border-4 border-black p-6 rounded-2xl inline-block w-full">
                     <h3 className="text-4xl font-black mb-1 tracking-wider">{selectedQrEq.id}</h3>
                     <p className="text-base font-bold text-gray-600 mb-4">{selectedQrEq.type}</p>
-                    <img 
-                      src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${selectedQrEq.id}`} 
-                      alt={selectedQrEq.id} 
-                      className="w-48 h-48 mx-auto shadow-sm" 
-                      crossOrigin="anonymous"
-                    />
+                    <img src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${selectedQrEq.id}`} alt={selectedQrEq.id} className="w-48 h-48 mx-auto shadow-sm" crossOrigin="anonymous" />
                     <div className="mt-6 text-sm font-bold text-gray-800">{selectedQrEq.factory} - {selectedQrEq.floor}</div>
                     <div className="text-xs font-bold text-gray-500 mt-1">{selectedQrEq.dept}</div>
                   </div>
                 </div>
                 <div className="p-5 bg-gray-50 border-t flex gap-4">
-                  <button onClick={() => downloadQrCode(selectedQrEq.id)} className="flex-1 py-3 bg-green-600 text-white rounded-xl font-bold flex justify-center items-center gap-2 hover:bg-green-700 shadow-md transition-colors">
-                    <Icon name="Download" size={18}/> 下載
-                  </button>
-                  <button onClick={() => printQrCode(selectedQrEq)} className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold flex justify-center items-center gap-2 hover:bg-blue-700 shadow-md transition-colors">
-                    <Icon name="Printer" size={18}/> 列印
-                  </button>
+                  <button onClick={() => downloadQrCode(selectedQrEq.id)} className="flex-1 py-3 bg-green-600 text-white rounded-xl font-bold flex justify-center items-center gap-2 hover:bg-green-700 shadow-md transition-colors"><Icon name="Download" size={18}/> 下載</button>
+                  <button onClick={() => printQrCode(selectedQrEq)} className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold flex justify-center items-center gap-2 hover:bg-blue-700 shadow-md transition-colors"><Icon name="Printer" size={18}/> 列印</button>
                 </div>
               </div>
             </div>
@@ -1308,31 +1195,21 @@
           <div className="bg-white p-5 rounded-2xl shadow-sm sticky top-16 z-0 border border-gray-100">
             <div className="flex gap-3 mb-4">
               <div className="relative flex-1">
-                <input 
-                  type="text" placeholder="搜尋設備編號..." 
-                  className="w-full bg-gray-100 rounded-xl py-3 pl-11 pr-10 outline-none text-sm focus:ring-2 focus:ring-red-200 font-bold text-gray-700" 
-                  value={searchTerm} onChange={e=>setSearchTerm(e.target.value)}
-                />
+                <input type="text" placeholder="搜尋設備編號..." className="w-full bg-gray-100 rounded-xl py-3 pl-11 pr-10 outline-none text-sm focus:ring-2 focus:ring-red-200 font-bold text-gray-700" value={searchTerm} onChange={e=>setSearchTerm(e.target.value)} />
                 <Icon name="Search" size={20} className="absolute left-4 top-3 text-gray-400" />
                 {searchTerm && <button onClick={() => setSearchTerm('')} className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"><Icon name="XCircle" size={20}/></button>}
               </div>
-              <button onClick={()=>setShowScannerModal(true)} className="bg-gray-800 text-white px-4 py-3 rounded-xl hover:bg-gray-700 shadow-md transition-colors">
-                <Icon name="QrCode" size={22} />
-              </button>
+              <button onClick={()=>setShowScannerModal(true)} className="bg-gray-800 text-white px-4 py-3 rounded-xl hover:bg-gray-700 shadow-md transition-colors"><Icon name="QrCode" size={22} /></button>
             </div>
-            
             <div className="flex gap-3 mb-4">
               <select className="flex-1 w-1/2 bg-gray-50 border-2 border-gray-200 rounded-xl py-2.5 px-3 text-sm outline-none font-bold text-gray-600 focus:border-red-500 transition-colors" value={typeFilter} onChange={e => setTypeFilter(e.target.value)}>
-                <option value="all">🔍 所有設備</option>
-                <option value="滅火器">滅火器</option>
-                <option value="消防栓">消防栓</option>
+                <option value="all">🔍 所有設備</option><option value="滅火器">滅火器</option><option value="消防栓">消防栓</option>
               </select>
               <select className="flex-1 w-1/2 bg-gray-50 border-2 border-gray-200 rounded-xl py-2.5 px-3 text-sm outline-none font-bold text-gray-600 focus:border-red-500 transition-colors" value={deptFilter} onChange={e => setDeptFilter(e.target.value)}>
                 <option value="all">🔍 所有單位</option>
                 {departments.map(d => <option key={d} value={d}>{d}</option>)}
               </select>
             </div>
-            
             <div className="flex bg-white p-1.5 rounded-xl gap-1 border border-gray-200 shadow-sm">
               {[
                 { val: 'all', label: '全部', activeClass: 'bg-blue-600 text-white shadow-md', inactiveClass: 'text-blue-600 bg-blue-50 hover:bg-blue-100' },
@@ -1340,29 +1217,19 @@
                 { val: 'pending', label: '待確認', activeClass: 'bg-yellow-500 text-white shadow-md', inactiveClass: 'text-yellow-600 bg-yellow-50 hover:bg-yellow-100' },
                 { val: 'done', label: '已完成', activeClass: 'bg-green-500 text-white shadow-md', inactiveClass: 'text-green-600 bg-green-50 hover:bg-green-100' }
               ].map(opt => (
-                <button 
-                  key={opt.val} onClick={()=>setFilter(opt.val)} 
-                  className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${filter === opt.val ? `${opt.activeClass} scale-[0.98]` : opt.inactiveClass}`}
-                >
-                  {opt.label}
-                </button>
+                <button key={opt.val} onClick={()=>setFilter(opt.val)} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${filter === opt.val ? `${opt.activeClass} scale-[0.98]` : opt.inactiveClass}`}>{opt.label}</button>
               ))}
             </div>
           </div>
 
           <div className="space-y-4 pb-8">
-            <div className="px-2 flex justify-between items-center text-xs font-bold text-gray-500">
-              <span>共找到 {filtered.length} 筆資料</span>
-            </div>
-
+            <div className="px-2 flex justify-between items-center text-xs font-bold text-gray-500"><span>共找到 {filtered.length} 筆資料</span></div>
             {equipmentList.length === 0 && (
               <div className="text-center py-16 bg-white rounded-2xl border border-gray-100">
                 <Icon name="ClipboardList" size={56} className="mx-auto text-gray-300 mb-4" />
-                <p className="text-lg text-gray-500 font-bold mb-1">尚無設備資料</p>
-                <p className="text-sm text-gray-400">請至管理後台進行 CSV 匯入建檔</p>
+                <p className="text-lg text-gray-500 font-bold mb-1">尚無設備資料</p><p className="text-sm text-gray-400">請至管理後台進行 CSV 匯入建檔</p>
               </div>
             )}
-            
             {filtered.map(eq => {
               const s = getStatus(eq.id);
               return (
@@ -1373,46 +1240,29 @@
                         <span className="font-black text-gray-800 text-lg tracking-wide">{eq.id} <span className="text-sm font-bold text-gray-500 ml-1">({eq.floor})</span></span>
                         <span className={`text-[11px] px-2.5 py-0.5 rounded-md font-bold ${s.color}`}>{s.label}</span>
                       </div>
-                      <p className="text-sm font-bold text-gray-700">
-                        {eq.type} {eq.extinguisherType ? <span className="ml-1 font-normal text-gray-500">({eq.extinguisherType})</span> : ''}
-                      </p>
-                      <p className="text-xs text-gray-500 mt-1.5 font-medium flex items-center gap-1">
-                         <span className="bg-gray-100 px-1.5 py-0.5 rounded text-[10px]">{eq.dept}</span> {eq.location}
-                      </p>
+                      <p className="text-sm font-bold text-gray-700">{eq.type} {eq.extinguisherType ? <span className="ml-1 font-normal text-gray-500">({eq.extinguisherType})</span> : ''}</p>
+                      <p className="text-xs text-gray-500 mt-1.5 font-medium flex items-center gap-1"><span className="bg-gray-100 px-1.5 py-0.5 rounded text-[10px]">{eq.dept}</span> {eq.location}</p>
                     </div>
                     <div className="flex flex-col items-center gap-3">
-                      <button onClick={(e) => { e.stopPropagation(); setSelectedQrEq(eq); }} className="p-3 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-100 transition-colors shadow-sm">
-                        <Icon name="QrCode" size={22} />
-                      </button>
+                      <button onClick={(e) => { e.stopPropagation(); setSelectedQrEq(eq); }} className="p-3 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-100 transition-colors shadow-sm"><Icon name="QrCode" size={22} /></button>
                       <Icon name="ChevronRight" size={20} className="text-gray-300" />
                     </div>
                   </div>
-
                   {s.code === 'pending' && (
                     <div className="flex gap-3 mt-4 pt-4 border-t border-gray-100">
-                      <button onClick={(e)=>{e.stopPropagation(); onReject(eq.id);}} className="flex-1 py-2.5 bg-white border-2 border-red-200 hover:bg-red-50 text-red-600 rounded-xl text-sm font-bold flex items-center justify-center gap-1.5 transition-colors">
-                        <Icon name="XCircle" size={18}/> 退回重檢
-                      </button>
-                      <button onClick={(e)=>{e.stopPropagation(); onConfirm(eq.id);}} className="flex-1 py-2.5 bg-green-500 hover:bg-green-600 text-white rounded-xl text-sm font-bold shadow-md flex items-center justify-center gap-1.5 transition-colors">
-                        <Icon name="CheckCircle" size={18}/> 同意簽核
-                      </button>
+                      <button onClick={(e)=>{e.stopPropagation(); onReject(eq.id);}} className="flex-1 py-2.5 bg-white border-2 border-red-200 hover:bg-red-50 text-red-600 rounded-xl text-sm font-bold flex items-center justify-center gap-1.5 transition-colors"><Icon name="XCircle" size={18}/> 退回重檢</button>
+                      <button onClick={(e)=>{e.stopPropagation(); onConfirm(eq.id);}} className="flex-1 py-2.5 bg-green-500 hover:bg-green-600 text-white rounded-xl text-sm font-bold shadow-md flex items-center justify-center gap-1.5 transition-colors"><Icon name="CheckCircle" size={18}/> 同意簽核</button>
                     </div>
                   )}
                 </div>
               );
             })}
-            
-            {equipmentList.length > 0 && filtered.length === 0 && (
-              <div className="text-center py-10 text-gray-400 text-sm font-bold bg-white rounded-xl border border-gray-100">
-                此篩選條件下查無設備
-              </div>
-            )}
           </div>
         </div>
       );
     }
 
-    // ==========================================
+    //    // ==========================================
     // 歷史明細查詢與匯出
     // ==========================================
     function RecordList({ equipmentList, inspections }) {
@@ -1453,9 +1303,7 @@
       return (
         <div className="space-y-5 animate-in fade-in">
           <div className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm">
-            <h2 className="font-bold text-lg mb-5 flex items-center gap-2 text-gray-800">
-              <Icon name="History" size={22} className="text-blue-600"/> 歷史明細與匯出
-            </h2>
+            <h2 className="font-bold text-lg mb-5 flex items-center gap-2 text-gray-800"><Icon name="History" size={22} className="text-blue-600"/> 歷史明細與匯出</h2>
             
             <div className="flex bg-white p-1.5 rounded-xl gap-1 mb-5 border border-gray-200 shadow-sm">
               {[
@@ -1464,12 +1312,7 @@
                 { val: 'pending', label: '待確認', activeClass: 'bg-yellow-500 text-white shadow-md', inactiveClass: 'text-yellow-600 bg-yellow-50 hover:bg-yellow-100' },
                 { val: 'done', label: '已完成', activeClass: 'bg-green-500 text-white shadow-md', inactiveClass: 'text-green-600 bg-green-50 hover:bg-green-100' }
               ].map(opt => (
-                <button 
-                  key={opt.val} onClick={()=>setMode(opt.val)} 
-                  className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all ${mode === opt.val ? `${opt.activeClass} scale-[0.98]` : opt.inactiveClass}`}
-                >
-                  {opt.label}
-                </button>
+                <button key={opt.val} onClick={()=>setMode(opt.val)} className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all ${mode === opt.val ? `${opt.activeClass} scale-[0.98]` : opt.inactiveClass}`}>{opt.label}</button>
               ))}
             </div>
             
@@ -1499,25 +1342,17 @@
               <div key={i} className={`bg-white p-5 rounded-2xl border-l-8 shadow-sm hover:shadow-md transition-shadow ${r.isUn?'border-red-400':(!r.managerName?'border-yellow-400':(r.hasAbnormal?'border-red-600':'border-green-500'))}`}>
                 <div className="flex justify-between items-center mb-2">
                   <span className="font-black text-lg text-gray-800">{r.equipmentId} <span className="text-sm font-bold text-gray-500 ml-1">({r.eq.floor})</span></span>
-                  <span className={`text-[11px] font-bold px-2.5 py-1 rounded-md border ${r.isUn ? 'bg-red-50 text-red-600 border-red-200' : (!r.managerName ? 'bg-yellow-50 text-yellow-700 border-yellow-300' : 'bg-green-50 text-green-700 border-green-200')}`}>
-                    {r.isUn ? '未點檢' : (!r.managerName ? '待火源責任者確認' : '已完成')}
-                  </span>
+                  <span className={`text-[11px] font-bold px-2.5 py-1 rounded-md border ${r.isUn ? 'bg-red-50 text-red-600 border-red-200' : (!r.managerName ? 'bg-yellow-50 text-yellow-700 border-yellow-300' : 'bg-green-50 text-green-700 border-green-200')}`}>{r.isUn ? '未點檢' : (!r.managerName ? '待確認' : '已完成')}</span>
                 </div>
-                
-                <div className="text-sm font-bold text-gray-700 mb-3">
-                  {r.eq.type} {r.eq.extinguisherType ? <span className="ml-1 font-normal text-gray-500">({r.eq.extinguisherType})</span> : ''} <span className="font-normal text-gray-500 mx-1">在</span> {r.eq.factory} - {r.eq.dept} <span className="text-xs text-gray-400 ml-1">({r.eq.location})</span>
-                </div>
-                
+                <div className="text-sm font-bold text-gray-700 mb-3">{r.eq.type} {r.eq.extinguisherType ? <span className="ml-1 font-normal text-gray-500">({r.eq.extinguisherType})</span> : ''} <span className="font-normal text-gray-500 mx-1">在</span> {r.eq.factory} - {r.eq.dept} <span className="text-xs text-gray-400 ml-1">({r.eq.location})</span></div>
                 {!r.isUn && (
                   <div className="mt-4 pt-3 border-t border-gray-100 text-xs text-gray-600 flex flex-col gap-2">
                     <div className="flex justify-between items-center bg-gray-50 p-2.5 rounded-lg border border-gray-100">
-                      <span>巡檢人: <strong className="text-gray-800">{r.inspectorName}</strong> <span className="text-[10px] text-gray-400">({r.inspectorIp})</span></span> 
-                      <span className="text-[10px] text-gray-500 font-medium">{r.date}</span>
+                      <span>巡檢人: <strong className="text-gray-800">{r.inspectorName}</strong> <span className="text-[10px] text-gray-400">({r.inspectorIp})</span></span> <span className="text-[10px] text-gray-500 font-medium">{r.date}</span>
                     </div>
                     {r.managerName && (
                       <div className="flex justify-between items-center bg-green-50 p-2.5 rounded-lg border border-green-100">
-                        <span className="text-green-800">火源責任者確認: <strong>{r.managerName}</strong> <span className="text-[10px] text-green-600/70">({r.managerIp})</span></span> 
-                        <span className="text-[10px] text-green-700 font-medium">{r.managerDate}</span>
+                        <span className="text-green-800">火源責任者: <strong>{r.managerName}</strong> <span className="text-[10px] text-green-600/70">({r.managerIp})</span></span> <span className="text-[10px] text-green-700 font-medium">{r.managerDate}</span>
                       </div>
                     )}
                     {r.weight && <div className="text-blue-700 font-bold px-2 mt-1">重量實測: {r.weight} kg</div>}
@@ -1531,7 +1366,7 @@
       );
     }
 
-    // ==========================================
+    //    // ==========================================
     // 批次列印卡片與 PDF 預覽元件
     // ==========================================
     function InspectionCardUI({ equipment, inspections, reportYear, reportHalf }) {
@@ -1550,11 +1385,9 @@
       return (
         <div className="w-full">
           <h2 className="text-center text-xl font-bold mb-4 print:mb-3">{isExt ? '滅火器點檢卡' : '消防栓點檢卡'}</h2>
-          
           <div className="grid grid-cols-2 text-[11px] sm:text-xs font-bold mb-3 print:mb-2 text-gray-800">
             <div>編號：<span className="text-red-700 px-2 border-b border-gray-400 font-black text-sm">{equipment.id}</span></div>
             <div className="text-right">管理單位：<span className="px-2 border-b border-gray-400">{equipment.dept}</span></div>
-            
             {isExt && (
               <div className="col-span-2 mt-2 flex items-center flex-wrap">
                 <span className="mr-2">滅火器種類：</span>
@@ -1563,7 +1396,6 @@
                 <span className="inline-flex items-center mx-2"><span className="w-3 h-3 border border-gray-500 flex items-center justify-center mr-1 text-[9px] font-bold bg-gray-100 leading-none">{equipment.extinguisherType === '乾粉' ? 'V' : ''}</span>乾粉</span>
               </div>
             )}
-            
             <div className="mt-2">{reportYear} 年度 {reportHalf === 'H1' ? '上半年' : '下半年'}</div>
             <div className="text-right mt-2">數量：<span className="border-b border-gray-400 px-2">{equipment.quantity || 1}</span> 支</div>
           </div>
@@ -1576,10 +1408,7 @@
                   {months.map(m=><th key={m} className="border border-black p-0.5" colSpan={2}>{m}月</th>)}
                 </tr>
                 <tr className="bg-gray-100 text-gray-900">
-                  {months.map(m=><React.Fragment key={m}>
-                    <th className="border border-black p-0 tracking-tighter w-[5%]">正常</th>
-                    <th className="border border-black p-0 tracking-tighter w-[5%]">異常</th>
-                  </React.Fragment>)}
+                  {months.map(m=><React.Fragment key={m}><th className="border border-black p-0 tracking-tighter w-[5%]">正常</th><th className="border border-black p-0 tracking-tighter w-[5%]">異常</th></React.Fragment>)}
                 </tr>
               </thead>
               <tbody>
@@ -1593,12 +1422,8 @@
                       const hasWeight = isExt && q.id==='q1' && rec?.weight;
                       return (
                         <React.Fragment key={m}>
-                          <td className="border border-black p-0 sm:p-0.5 font-bold align-middle">
-                            {isN && <div className="flex flex-col items-center justify-center leading-none text-green-700"><span>V</span>{hasWeight && <span className="text-[8px] text-gray-600 font-medium mt-0.5">{rec.weight}</span>}</div>}
-                          </td>
-                          <td className="border border-black p-0 sm:p-0.5 font-bold align-middle">
-                            {isA && <div className="flex flex-col items-center justify-center leading-none text-red-700"><span>V</span>{hasWeight && <span className="text-[8px] text-gray-600 font-medium mt-0.5">{rec.weight}</span>}</div>}
-                          </td>
+                          <td className="border border-black p-0 sm:p-0.5 font-bold align-middle">{isN && <div className="flex flex-col items-center justify-center leading-none text-green-700"><span>V</span>{hasWeight && <span className="text-[8px] text-gray-600 font-medium mt-0.5">{rec.weight}</span>}</div>}</td>
+                          <td className="border border-black p-0 sm:p-0.5 font-bold align-middle">{isA && <div className="flex flex-col items-center justify-center leading-none text-red-700"><span>V</span>{hasWeight && <span className="text-[8px] text-gray-600 font-medium mt-0.5">{rec.weight}</span>}</div>}</td>
                         </React.Fragment>
                       );
                     })}
@@ -1608,30 +1433,23 @@
                   <td className="border border-black p-1 text-left bg-gray-50 font-bold whitespace-nowrap text-gray-900">火源責任者姓名:</td>
                   {months.map(m => {
                     const r = eqIns.find(i=>Number(i.month)===m);
-                    return <td key={m} colSpan={2} className="border border-black p-0.5 text-blue-800 font-bold tracking-tighter text-[9px] sm:text-[10px]">
-                      {r?.managerName||''}<span className="text-gray-500 font-normal ml-0.5">{getShortDate(r?.managerDate)}</span>
-                    </td>
+                    return <td key={m} colSpan={2} className="border border-black p-0.5 text-blue-800 font-bold tracking-tighter text-[9px] sm:text-[10px]">{r?.managerName||''}<span className="text-gray-500 font-normal ml-0.5">{getShortDate(r?.managerDate)}</span></td>
                   })}
                 </tr>
                 <tr>
                   <td className="border border-black p-1 text-left bg-gray-50 font-bold whitespace-nowrap text-gray-900">檢查人姓名:</td>
                   {months.map(m => {
                     const r = eqIns.find(i=>Number(i.month)===m);
-                    return <td key={m} colSpan={2} className="border border-black p-0.5 text-blue-800 font-bold tracking-tighter text-[9px] sm:text-[10px]">
-                      {r?.inspectorName||''}<span className="text-gray-500 font-normal ml-0.5">{getShortDate(r?.date)}</span>
-                    </td>
+                    return <td key={m} colSpan={2} className="border border-black p-0.5 text-blue-800 font-bold tracking-tighter text-[9px] sm:text-[10px]">{r?.inspectorName||''}<span className="text-gray-500 font-normal ml-0.5">{getShortDate(r?.date)}</span></td>
                   })}
                 </tr>
               </tbody>
             </table>
           </div>
-          
           <div className="text-xs text-gray-600 space-y-1 mt-3 font-bold">
             <p>備註:火源責任者由管理幹部擔當(組級以上人員)，檢查人員為現場單位指派之人員。</p>
             <div className="flex justify-between text-[10px]">
-              <span>FORM NO : {formNo}</span>
-              {/* ⭐ 這裡依據 isExt 條件判斷版本號 */}
-              <span>{isExt ? 'REV-E' : 'REV-C'}</span>
+              <span>FORM NO : {formNo}</span><span>{isExt ? 'REV-E' : 'REV-C'}</span>
             </div>
           </div>
         </div>
@@ -1641,18 +1459,12 @@
     function InspectionReport({ equipment, inspections, onBack }) {
       const [year, setYear] = useState(new Date().getFullYear());
       const [half, setHalf] = useState(new Date().getMonth() + 1 <= 6 ? 'H1' : 'H2');
-      
       return (
         <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
           <div className="flex justify-between print:hidden mb-4">
-            <button onClick={onBack} className="bg-white border-2 border-gray-200 px-4 py-2 rounded-xl font-bold flex items-center gap-2 hover:bg-gray-50 transition-colors">
-              <Icon name="ArrowLeft" size={20}/> 返回
-            </button>
-            <button onClick={() => window.print()} className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-xl font-bold flex items-center gap-2 shadow-md transition-colors">
-              <Icon name="Printer" size={20}/> 列印單張
-            </button>
+            <button onClick={onBack} className="bg-white border-2 border-gray-200 px-4 py-2 rounded-xl font-bold flex items-center gap-2 hover:bg-gray-50 transition-colors"><Icon name="ArrowLeft" size={20}/> 返回</button>
+            <button onClick={() => window.print()} className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-xl font-bold flex items-center gap-2 shadow-md transition-colors"><Icon name="Printer" size={20}/> 列印單張</button>
           </div>
-          
           <div className="bg-white p-6 sm:p-8 rounded-2xl shadow-sm border border-gray-100 print:border-none print:p-0 print:w-full print:shadow-none">
             <div className="flex gap-3 mb-8 print:hidden">
               <select className="border-2 border-gray-200 p-2.5 rounded-xl outline-none font-bold text-sm focus:border-blue-500" value={year} onChange={e=>setYear(e.target.value)}>
@@ -1662,7 +1474,6 @@
                 <option value="H1">上半年 (1-6月)</option><option value="H2">下半年 (7-12月)</option>
               </select>
             </div>
-
             <InspectionCardUI equipment={equipment} inspections={inspections} reportYear={year} reportHalf={half} />
           </div>
         </div>
@@ -1689,7 +1500,6 @@
           if (setAlertMsg) setAlertMsg("PDF 轉換套件尚未載入完成，請稍候幾秒再試！");
           return;
         }
-        
         const element = document.getElementById('batch-print-content');
         window.html2pdf().set({ 
           margin: 5, 
@@ -1701,13 +1511,8 @@
       return (
         <div className="space-y-4 animate-in fade-in">
           <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
-            <h2 className="font-bold text-xl mb-4 flex items-center gap-2 text-gray-800">
-              <Icon name="Printer" size={26} className="text-blue-600"/> 批次報表列印設定
-            </h2>
-            <p className="text-sm text-gray-500 mb-6 leading-relaxed">
-              透過下方的過濾器篩選後，您可以一次產生全廠區的專屬點檢卡，並直接傳送至印表機列印或儲存為 PDF 電子檔。
-            </p>
-            
+            <h2 className="font-bold text-xl mb-4 flex items-center gap-2 text-gray-800"><Icon name="Printer" size={26} className="text-blue-600"/> 批次報表列印設定</h2>
+            <p className="text-sm text-gray-500 mb-6 leading-relaxed">透過下方的過濾器篩選後，您可以一次產生全廠區的專屬點檢卡，並直接傳送至印表機列印或儲存為 PDF 電子檔。</p>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
               <div>
                 <label className="text-xs font-bold text-gray-500 ml-1">選擇年度</label>
@@ -1728,39 +1533,18 @@
                 </select>
               </div>
             </div>
-            
             <div className="flex gap-4">
-              <button onClick={onBack} className="flex-1 py-4 bg-gray-100 hover:bg-gray-200 rounded-2xl font-bold text-gray-700 transition-colors">
-                取消返回
-              </button>
-              <button 
-                onClick={() => {
-                  if(list.length > 0) {
-                    setShow(true);
-                    window.scrollTo(0, 0);
-                  }
-                }} 
-                disabled={list.length === 0}
-                className={`flex-1 py-4 rounded-2xl font-bold transition-colors flex justify-center items-center gap-2 shadow-md ${list.length > 0 ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}
-              >
-                <Icon name="FileText" size={20}/> 產生全螢幕預覽 ({list.length} 張)
-              </button>
+              <button onClick={onBack} className="flex-1 py-4 bg-gray-100 hover:bg-gray-200 rounded-2xl font-bold text-gray-700 transition-colors">取消返回</button>
+              <button onClick={() => { if(list.length > 0) { setShow(true); window.scrollTo(0, 0); } }} disabled={list.length === 0} className={`flex-1 py-4 rounded-2xl font-bold transition-colors flex justify-center items-center gap-2 shadow-md ${list.length > 0 ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}><Icon name="FileText" size={20}/> 產生全螢幕預覽 ({list.length} 張)</button>
             </div>
           </div>
-
           {show && (
             <div className="fixed inset-0 z-[300] bg-gray-200 flex flex-col overflow-hidden animate-in zoom-in-95">
               <header className="bg-gray-900 text-white p-4 flex justify-between items-center shadow-lg print:hidden">
-                <button onClick={()=>setShow(false)} className="flex items-center gap-2 font-bold bg-gray-700 px-4 py-2 rounded-xl hover:bg-gray-600 transition-colors">
-                  <Icon name="XCircle" size={20}/> 關閉預覽
-                </button>
+                <button onClick={()=>setShow(false)} className="flex items-center gap-2 font-bold bg-gray-700 px-4 py-2 rounded-xl hover:bg-gray-600 transition-colors"><Icon name="XCircle" size={20}/> 關閉預覽</button>
                 <div className="flex gap-3">
-                  <button onClick={handleExportPDF} className="bg-orange-500 px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 hover:bg-orange-600 transition-colors shadow-md">
-                    <Icon name="Download" size={18}/> 打包 PDF
-                  </button>
-                  <button onClick={()=>window.print()} className="bg-blue-600 px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 hover:bg-blue-700 transition-colors shadow-md">
-                    <Icon name="Printer" size={18}/> 直接列印
-                  </button>
+                  <button onClick={handleExportPDF} className="bg-orange-500 px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 hover:bg-orange-600 transition-colors shadow-md"><Icon name="Download" size={18}/> 打包 PDF</button>
+                  <button onClick={()=>window.print()} className="bg-blue-600 px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 hover:bg-blue-700 transition-colors shadow-md"><Icon name="Printer" size={18}/> 直接列印</button>
                 </div>
               </header>
               <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-gray-200" id="batch-print-content">
@@ -1779,10 +1563,10 @@
       );
     }
 
-    // ==========================================
+    //    // ==========================================
     // 設備與權限管理員 (Admin)
     // ==========================================
-    function EquipmentManager({ equipmentList, setDbEquipment, users, setDbUsers, apiUrl, setAlertMsg, setConfirmDialog }) {
+    function EquipmentManager({ currentUser, equipmentList, setDbEquipment, users, setDbUsers, apiUrl, setAlertMsg, setConfirmDialog }) {
       const [adminTab, setAdminTab] = useState('equipment'); 
       const [editingEq, setEditingEq] = useState(null);
       const [isAdding, setIsAdding] = useState(false);
@@ -1817,11 +1601,11 @@
         result.push(cur.trim()); return result;
       };
 
-      const handleFileUpload = (e) => {
+      const handleFileUpload = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
         const reader = new FileReader();
-        reader.onload = (evt) => {
+        reader.onload = async (evt) => {
           const text = evt.target.result; const lines = text.split(/\r?\n/);
           if (lines.length < 2) { setAlertMsg("CSV 檔案格式錯誤或為空檔。"); return; }
           const headers = parseCSVLine(lines[0]);
@@ -1835,8 +1619,15 @@
             if (obj.id) newEquipmentList.push(obj);
           }
           setDbEquipment(newEquipmentList);
-          setAlertMsg(`成功匯入 ${newEquipmentList.length} 筆設備資料！\n(備註：目前僅更新本機，請將系統連線至雲端以保留資料)`);
+          setAlertMsg(`成功匯入 ${newEquipmentList.length} 筆設備資料！`);
           if(fileInputRef.current) fileInputRef.current.value = '';
+
+          // 呼叫 API 寫入雲端 (包含操作者日誌資訊)
+          if (apiUrl) {
+            try { 
+              await fetch(apiUrl, { method: 'POST', body: JSON.stringify({ action: 'importEquipment', secret: SYSTEM_SECRET_KEY, operator: currentUser.name, data: newEquipmentList }) }); 
+            } catch (err) { console.error("同步失敗:", err); }
+          }
         };
         reader.readAsText(file);
       };
@@ -1866,16 +1657,17 @@
           setAlertMsg(`成功匯入 ${finalUserList.length} 筆人員資料！`);
           if(userFileInputRef.current) userFileInputRef.current.value = '';
 
+          // 呼叫 API 寫入雲端 (包含操作者日誌資訊)
           if (apiUrl) {
             try { 
-              await fetch(apiUrl, { method: 'POST', body: JSON.stringify({ action: 'importUsers', secret: SYSTEM_SECRET_KEY, data: finalUserList }) }); 
+              await fetch(apiUrl, { method: 'POST', body: JSON.stringify({ action: 'importUsers', secret: SYSTEM_SECRET_KEY, operator: currentUser.name, data: finalUserList }) }); 
             } catch (err) { console.error("同步失敗:", err); }
           }
         };
         reader.readAsText(file);
       };
 
-      const handleSaveEq = (e) => {
+      const handleSaveEq = async (e) => {
         e.preventDefault();
         const formData = new FormData(e.target);
         const newEq = { 
@@ -1890,9 +1682,19 @@
           if (equipmentList.some(eq => eq.id === newEq.id)) { setAlertMsg(`編號 ${newEq.id} 已存在，請換一個。`); return; }
           setDbEquipment([newEq, ...equipmentList]); 
           setAlertMsg(`新增成功：${newEq.id}`);
+          
+          if (apiUrl) {
+            try { await fetch(apiUrl, { method: 'POST', body: JSON.stringify({ action: 'addEquipment', secret: SYSTEM_SECRET_KEY, operator: currentUser.name, data: newEq }) }); } 
+            catch (err) { console.error(err); }
+          }
         } else {
           setDbEquipment(equipmentList.map(eq => eq.id === newEq.id ? newEq : eq)); 
           setAlertMsg(`更新成功：${newEq.id}`);
+          
+          if (apiUrl) {
+            try { await fetch(apiUrl, { method: 'POST', body: JSON.stringify({ action: 'updateEquipment', secret: SYSTEM_SECRET_KEY, operator: currentUser.name, data: newEq }) }); } 
+            catch (err) { console.error(err); }
+          }
         }
         setEditingEq(null); setIsAdding(false);
       };
@@ -1901,8 +1703,12 @@
         if(setConfirmDialog) {
           setConfirmDialog({
             message: `確定要刪除設備 [${id}] 嗎？`,
-            onConfirm: () => {
+            onConfirm: async () => {
               setDbEquipment(equipmentList.filter(eq => eq.id !== id)); 
+              if (apiUrl) {
+                try { await fetch(apiUrl, { method: 'POST', body: JSON.stringify({ action: 'deleteEquipment', secret: SYSTEM_SECRET_KEY, operator: currentUser.name, id: id }) }); } 
+                catch (err) { console.error(err); }
+              }
             }
           });
         }
@@ -1939,7 +1745,7 @@
 
         if (apiUrl) {
           try { 
-            await fetch(apiUrl, { method: 'POST', body: JSON.stringify({ action: actionType, secret: SYSTEM_SECRET_KEY, account: newUser.account, data: newUser }) }); 
+            await fetch(apiUrl, { method: 'POST', body: JSON.stringify({ action: actionType, secret: SYSTEM_SECRET_KEY, operator: currentUser.name, account: newUser.account, data: newUser }) }); 
           } catch (err) { console.error(err); }
         }
       };
@@ -1956,7 +1762,7 @@
             onConfirm: async () => {
               setDbUsers(users.filter(u => u.account !== account));
               if (apiUrl) {
-                try { await fetch(apiUrl, { method: 'POST', body: JSON.stringify({ action: 'deleteUser', secret: SYSTEM_SECRET_KEY, account: account }) }); } 
+                try { await fetch(apiUrl, { method: 'POST', body: JSON.stringify({ action: 'deleteUser', secret: SYSTEM_SECRET_KEY, operator: currentUser.name, account: account }) }); } 
                 catch (err) { console.error(err); }
               }
             }
