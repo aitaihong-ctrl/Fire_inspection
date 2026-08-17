@@ -344,10 +344,6 @@
           setDbEquipment(prev => prev.map(e => e.id === safeRecordId ? { ...e, extinguisherType: selectedTypeIfMissing || e.extinguisherType, quantity: updatedQuantity } : e));
         }
 
-        setScannedEq(null);
-        setActiveTab('success');
-        setTimeout(() => setActiveTab('dashboard'), 2500);
-
         if (GOOGLE_SHEET_API_URL) {
           try {
             await fetch(GOOGLE_SHEET_API_URL, { 
@@ -355,15 +351,22 @@
               body: JSON.stringify({ action: 'addInspection', secret: SYSTEM_SECRET_KEY, data: { ...newRecord, answers: JSON.stringify(newRecord.answers) } }) 
             });
             if (selectedTypeIfMissing || hasQuantityChanged) {
+              // ⭐ 這裡改用與「設備庫管理」相同的 updateEquipment 動作，具備容錯處理，確保寫入絕對成功
+              const updatedEq = { ...currentEq, extinguisherType: selectedTypeIfMissing || currentEq.extinguisherType, quantity: updatedQuantity };
               await fetch(GOOGLE_SHEET_API_URL, { 
                 method: 'POST', 
-                body: JSON.stringify({ action: 'updateEquipmentData', secret: SYSTEM_SECRET_KEY, id: safeRecordId, newType: selectedTypeIfMissing, newQuantity: updatedQuantity }) 
+                body: JSON.stringify({ action: 'updateEquipment', secret: SYSTEM_SECRET_KEY, operator: currentUser.name, data: updatedEq }) 
               });
             }
           } catch (err) { 
             console.error(err); 
           }
         }
+
+        // ⭐ 確保 API 發送完成後再切換畫面
+        setScannedEq(null);
+        setActiveTab('success');
+        setTimeout(() => setActiveTab('dashboard'), 2500);
       };
 
       const handleConfirmRecord = async (eqId) => {
@@ -1376,6 +1379,9 @@
       const months = reportHalf === 'H1' ? [1,2,3,4,5,6] : [7,8,9,10,11,12];
       const eqIns = inspections.filter(i => i.equipmentId === equipment.id && Number(i.year) === Number(reportYear));
       
+      // 加入字串安全處理與空白去除，避免資料庫內有隱藏字元導致比對失敗
+      const extType = String(equipment.extinguisherType || '').trim();
+      
       const getShortDate = (str) => {
         if(!str) return '';
         const m = String(str).match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
@@ -1391,9 +1397,21 @@
             {isExt && (
               <div className="col-span-2 mt-2 flex items-center flex-wrap">
                 <span className="mr-2">滅火器種類：</span>
-                <span className="inline-flex items-center mx-2"><span className="w-3 h-3 border border-gray-500 flex items-center justify-center mr-1 text-[9px] font-bold bg-gray-100 leading-none">{equipment.extinguisherType === 'CO2' ? 'V' : ''}</span>CO2</span>
-                <span className="inline-flex items-center mx-2"><span className="w-3 h-3 border border-gray-500 flex items-center justify-center mr-1 text-[9px] font-bold bg-gray-100 leading-none">{equipment.extinguisherType === '泡沫' ? 'V' : ''}</span>泡沫</span>
-                <span className="inline-flex items-center mx-2"><span className="w-3 h-3 border border-gray-500 flex items-center justify-center mr-1 text-[9px] font-bold bg-gray-100 leading-none">{equipment.extinguisherType === '乾粉' ? 'V' : ''}</span>乾粉</span>
+                <span className="inline-flex items-center mx-2">
+                  <span className="w-3.5 h-3.5 border border-black flex items-center justify-center mr-1 text-[10px] font-bold leading-none text-black">
+                    {extType.includes('CO2') ? 'V' : ''}
+                  </span>CO2
+                </span>
+                <span className="inline-flex items-center mx-2">
+                  <span className="w-3.5 h-3.5 border border-black flex items-center justify-center mr-1 text-[10px] font-bold leading-none text-black">
+                    {extType.includes('泡沫') ? 'V' : ''}
+                  </span>泡沫
+                </span>
+                <span className="inline-flex items-center mx-2">
+                  <span className="w-3.5 h-3.5 border border-black flex items-center justify-center mr-1 text-[10px] font-bold leading-none text-black">
+                    {extType.includes('乾粉') ? 'V' : ''}
+                  </span>乾粉
+                </span>
               </div>
             )}
             <div className="mt-2">{reportYear} 年度 {reportHalf === 'H1' ? '上半年' : '下半年'}</div>
