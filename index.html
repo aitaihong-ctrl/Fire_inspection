@@ -62,7 +62,7 @@
     const SYSTEM_SECRET_KEY = "TCI_FireSafety_2026_!@#";
     const apiKey = ""; // 🚨 Gemini API 整合 (選用)
 
-    //    // ==========================================
+    // ==========================================
     // API 呼叫工具與全域時間校正
     // ==========================================
     const callGeminiAPI = async (prompt) => {
@@ -141,7 +141,7 @@
       { id: 'q5', text: '閥門是否有漏水現象?' }
     ];
 
-    //    // ==========================================
+    // ==========================================
     // 圖示組件
     // ==========================================
     const Icon = ({ name, size = 24, className = "" }) => {
@@ -202,7 +202,7 @@
       return diff > 90; 
     }
 
-    //    // ==========================================
+    // ==========================================
     // 主程式組件 (App)
     // ==========================================
     function App() {
@@ -318,9 +318,13 @@
         const safeRecordId = (record.equipmentId || '').toString().trim();
         const currentIp = await getClientIp();
         
+        const currentEq = dbEquipment.find(e => e.id === safeRecordId) || {};
+        const finalExtinguisherType = currentEq.extinguisherType || selectedTypeIfMissing || '';
+
         const newRecord = { 
           ...record, 
           equipmentId: safeRecordId, 
+          extinguisherType: finalExtinguisherType, 
           date: getLocalFormattedTime(), 
           month: now.getMonth() + 1, 
           year: now.getFullYear(), 
@@ -337,7 +341,6 @@
         
         setInspections(newInspections);
 
-        const currentEq = dbEquipment.find(e => e.id === safeRecordId) || {};
         const hasQuantityChanged = currentEq.quantity != updatedQuantity;
 
         if (selectedTypeIfMissing || hasQuantityChanged) {
@@ -351,7 +354,6 @@
               body: JSON.stringify({ action: 'addInspection', secret: SYSTEM_SECRET_KEY, data: { ...newRecord, answers: JSON.stringify(newRecord.answers) } }) 
             });
             if (selectedTypeIfMissing || hasQuantityChanged) {
-              // ⭐ 這裡改用與「設備庫管理」相同的 updateEquipment 動作，具備容錯處理，確保寫入絕對成功
               const updatedEq = { ...currentEq, extinguisherType: selectedTypeIfMissing || currentEq.extinguisherType, quantity: updatedQuantity };
               await fetch(GOOGLE_SHEET_API_URL, { 
                 method: 'POST', 
@@ -363,7 +365,6 @@
           }
         }
 
-        // ⭐ 確保 API 發送完成後再切換畫面
         setScannedEq(null);
         setActiveTab('success');
         setTimeout(() => setActiveTab('dashboard'), 2500);
@@ -560,7 +561,7 @@
       );
     }
 
-    //    // ==========================================
+    // ==========================================
     // 登入與安全設定
     // ==========================================
     function ChangePasswordScreen({ user, isForced, apiUrl, onSuccess, onCancel }) {
@@ -722,7 +723,7 @@
       );
     }
 
-    //    // ==========================================
+    // ==========================================
     // 首頁與 AI 總結 (Dashboard)
     // ==========================================
     function Dashboard({ total, completed, pending, abnormal, abnormalRecords, equipmentList, currentYear, currentMonth, onScan, onViewList, onBatchPrint }) {
@@ -868,7 +869,7 @@
       );
     }
 
-    //    // ==========================================
+    // ==========================================
     // 現場掃碼 (Scanner)
     // ==========================================
     function Scanner({ onScan, mockEquipment }) {
@@ -962,7 +963,7 @@
       );
     }
 
-    //    // ==========================================
+    // ==========================================
     // 填寫點檢表單
     // ==========================================
     function InspectionForm({ equipment, currentUser, onSubmit, onCancel }) {
@@ -1080,7 +1081,7 @@
       );
     }
 
-    //    // ==========================================
+    // ==========================================
     // 設備清單與二級簽核 (EquipmentList)
     // ==========================================
     function EquipmentList({ equipmentList, inspections, currentYear, currentMonth, onDetail, onConfirm, onReject, setAlertMsg }) {
@@ -1265,7 +1266,7 @@
       );
     }
 
-    //    // ==========================================
+    // ==========================================
     // 歷史明細查詢與匯出
     // ==========================================
     function RecordList({ equipmentList, inspections }) {
@@ -1369,7 +1370,7 @@
       );
     }
 
-    //    // ==========================================
+    // ==========================================
     // 批次列印卡片與 PDF 預覽元件
     // ==========================================
     function InspectionCardUI({ equipment, inspections, reportYear, reportHalf }) {
@@ -1379,13 +1380,20 @@
       const months = reportHalf === 'H1' ? [1,2,3,4,5,6] : [7,8,9,10,11,12];
       const eqIns = inspections.filter(i => i.equipmentId === equipment.id && Number(i.year) === Number(reportYear));
       
-      // 加入字串安全處理與空白去除，避免資料庫內有隱藏字元導致比對失敗
+      // ⭐ 修復：宣告 extType 變數，用於精準判斷滅火器種類是否被打勾
       const extType = String(equipment.extinguisherType || '').trim();
-      
+
       const getShortDate = (str) => {
         if(!str) return '';
-        const m = String(str).match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
-        return m ? ` ${parseInt(m[2], 10)}/${parseInt(m[3], 10)}` : ` ${String(str).split(/[ T]/)[0]}`;
+        const s = String(str);
+        // 格式1: YYYY/MM/DD 或 YYYY-MM-DD
+        let m = s.match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+        if (m) return ` ${parseInt(m[2], 10)}/${parseInt(m[3], 10)}`;
+        // 格式2: MM/DD/YYYY 或 M/D/YYYY (解決美式伺服器格式)
+        m = s.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+        if (m) return ` ${parseInt(m[1], 10)}/${parseInt(m[2], 10)}`;
+        
+        return ` ${s.split(/[ T,]/)[0]}`;
       };
 
       return (
@@ -1581,7 +1589,7 @@
       );
     }
 
-    //    // ==========================================
+    // ==========================================
     // 設備與權限管理員 (Admin)
     // ==========================================
     function EquipmentManager({ currentUser, equipmentList, setDbEquipment, users, setDbUsers, apiUrl, setAlertMsg, setConfirmDialog }) {
