@@ -382,7 +382,8 @@
         }));
         
         if (GOOGLE_SHEET_API_URL) {
-          const payload = { action: 'confirmInspection', secret: SYSTEM_SECRET_KEY, equipmentId: eqId, year: currentYear, month: currentMonth, managerName: currentUser.name, managerIp: ip };
+          // ⭐ 核心修正：在 payload 中加入 managerDate: confDate
+          const payload = { action: 'confirmInspection', secret: SYSTEM_SECRET_KEY, equipmentId: eqId, year: currentYear, month: currentMonth, managerName: currentUser.name, managerIp: ip, managerDate: confDate };
           try {
             setIsLoading(true);
             const res = await fetch(GOOGLE_SHEET_API_URL, { method: 'POST', body: JSON.stringify(payload) });
