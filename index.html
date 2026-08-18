@@ -382,8 +382,7 @@
         }));
         
         if (GOOGLE_SHEET_API_URL) {
-          // ⭐ 核心修正：在 payload 中加入 managerDate: confDate
-          const payload = { action: 'confirmInspection', secret: SYSTEM_SECRET_KEY, equipmentId: eqId, year: currentYear, month: currentMonth, managerName: currentUser.name, managerIp: ip, managerDate: confDate };
+          const payload = { action: 'confirmInspection', secret: SYSTEM_SECRET_KEY, equipmentId: eqId, year: currentYear, month: currentMonth, managerName: currentUser.name, managerIp: ip };
           try {
             setIsLoading(true);
             const res = await fetch(GOOGLE_SHEET_API_URL, { method: 'POST', body: JSON.stringify(payload) });
@@ -731,6 +730,7 @@
       const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
       const [aiSummary, setAiSummary] = useState('');
       const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+      const [showAbnormalDetails, setShowAbnormalDetails] = useState(false);
 
       const handleGenerateAISummary = async () => {
         setIsGeneratingAI(true);
@@ -840,12 +840,40 @@
                </h2>
              </div>
              {abnormal > 0 ? (
-               <div className="p-4 bg-red-50 border border-red-100 rounded-2xl flex items-start gap-4">
-                 <Icon name="AlertTriangle" className="text-red-500 shrink-0" size={24} />
-                 <div>
-                   <p className="text-base font-bold text-red-800">發現 {abnormal} 件設備異常</p>
-                   <p className="text-sm text-red-600 mt-1 font-medium">請盡速通知相關設備單位處理修繕。</p>
+               <div className="space-y-3">
+                 <div className="p-4 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-4">
+                   <Icon name="AlertTriangle" className="text-red-500 shrink-0" size={24} />
+                   <div className="flex-1">
+                     <p className="text-base font-bold text-red-800">發現 {abnormal} 件設備異常</p>
+                     <p className="text-sm text-red-600 mt-1 font-medium">請盡速通知相關單位處理修繕。</p>
+                   </div>
+                   <button 
+                     onClick={() => setShowAbnormalDetails(!showAbnormalDetails)}
+                     className="px-3.5 py-2 bg-red-100 text-red-700 hover:bg-red-200 rounded-xl text-xs font-bold transition-colors shadow-sm whitespace-nowrap"
+                   >
+                     {showAbnormalDetails ? '隱藏明細' : '查看明細'}
+                   </button>
                  </div>
+                 
+                 {showAbnormalDetails && (
+                   <div className="mt-3 space-y-2 max-h-60 overflow-y-auto pr-1 animate-in fade-in slide-in-from-top-2">
+                     {abnormalRecords.map((rec, idx) => {
+                       const eq = equipmentList.find(e => e.id === rec.equipmentId) || {};
+                       return (
+                         <div key={idx} className="p-4 bg-white border border-red-100 rounded-2xl shadow-sm">
+                           <div className="flex justify-between items-center mb-2">
+                             <span className="font-bold text-red-700 text-base">{rec.equipmentId} <span className="text-xs text-gray-500 font-normal ml-1">({eq.type || '未知設備'})</span></span>
+                             <span className="text-[10px] bg-gray-100 border border-gray-200 text-gray-600 px-2 py-0.5 rounded-md font-bold">{eq.dept || '未知單位'}</span>
+                           </div>
+                           <div className="text-xs text-gray-600 font-medium mb-2.5">{eq.factory} {eq.floor} - {eq.location}</div>
+                           <div className="text-xs bg-red-50 text-red-800 p-2.5 rounded-lg border border-red-100/80 leading-relaxed">
+                             <span className="font-bold">⚠️ 異常說明：</span>{rec.remark || '未填寫備註'}
+                           </div>
+                         </div>
+                       );
+                     })}
+                   </div>
+                 )}
                </div>
              ) : (
                <div className="text-center py-6 bg-gray-50 rounded-2xl border border-gray-100">
