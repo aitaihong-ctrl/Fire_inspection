@@ -1025,7 +1025,7 @@
           
           {needsType && (
             <div className="bg-yellow-50 p-5 rounded-2xl border-2 border-yellow-300 shadow-sm animate-in fade-in">
-              <p className="text-sm font-bold mb-3 text-yellow-800 flex items-center gap-2"><Icon name="AlertTriangle" size={20}/> 系統缺失種類，請於現場確認：</p>
+              <p className="text-sm font-bold mb-3 text-yellow-800 flex items-center gap-2"><Icon name="AlertTriangle" size={20}/> 滅火器種類，請於現場確認：</p>
               <div className="flex gap-3">
                 {['乾粉','CO2','泡沫'].map(t => (
                   <button key={t} onClick={()=>setTempType(t)} className={`flex-1 py-3 rounded-xl border-2 font-bold transition-all ${tempType===t ? 'bg-yellow-500 border-yellow-600 text-white shadow-inner transform scale-95' : 'bg-white text-yellow-700 hover:bg-yellow-100'}`}>{t}</button>
