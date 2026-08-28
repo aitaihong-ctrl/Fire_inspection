@@ -505,7 +505,7 @@
                 onScan={() => navigateTo('scanner')} onViewList={() => navigateTo('list')} onBatchPrint={() => navigateTo('batch-print')} 
               />
             )}
-            {activeTab === 'scanner' && <Scanner onScan={handleScan} mockEquipment={dbEquipment} />}
+            {activeTab === 'scanner' && <Scanner onScan={handleScan} mockEquipment={dbEquipment} inspections={inspections} currentYear={currentYear} currentMonth={currentMonth} />}
             {activeTab === 'form' && scannedEq && <InspectionForm equipment={scannedEq} currentUser={currentUser} onSubmit={submitInspection} onCancel={() => navigateTo('dashboard')} />}
             {activeTab === 'list' && (
               <EquipmentList 
@@ -899,14 +899,23 @@
     }
 
     // ==========================================
-    // 現場掃碼 (Scanner)
+    // 現場掃碼 (Scanner) - 加入已點檢狀態視覺區分
     // ==========================================
-    function Scanner({ onScan, mockEquipment }) {
+    function Scanner({ onScan, mockEquipment, inspections = [], currentYear = null, currentMonth = null }) {
       const [selectedDept, setSelectedDept] = useState('');
       const videoRef = useRef(null);
       const canvasRef = useRef(null);
       const departments = [...new Set(mockEquipment.map(eq => (eq.dept || '').toString().trim()))].filter(Boolean);
       
+      const getStatus = (id) => {
+        if (!inspections || !currentYear || !currentMonth) return { code: 'none' };
+        const safeEqId = (id || '').toString().trim();
+        const r = inspections.find(i => i.equipmentId === safeEqId && Number(i.year) === Number(currentYear) && Number(i.month) === Number(currentMonth));
+        if (!r) return { code: 'none' };
+        if (!r.managerName) return { code: 'pending', label: '已點檢 (待確認)', bg: 'bg-yellow-50', border: 'border-yellow-300', text: 'text-yellow-800', badge: 'bg-yellow-100 text-yellow-700 border-yellow-200' };
+        return { code: 'done', label: '已點檢 (已完成)', bg: 'bg-green-50', border: 'border-green-300', text: 'text-green-800', badge: 'bg-green-100 text-green-700 border-green-200' };
+      };
+
       useEffect(() => {
         let stream = null; 
         let ani = null;
@@ -977,15 +986,39 @@
             </select>
             
             <div className="flex flex-col gap-2 mt-4 max-h-56 overflow-y-auto pr-1">
-              {mockEquipment.filter(e => !selectedDept || e.dept === selectedDept).map(e => (
-                <button key={e.id} onClick={() => onScan(e.id)} className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-left hover:bg-red-50 hover:text-red-700 hover:border-red-200 transition-colors flex justify-between items-center shadow-sm">
-                  <div>
-                    <div className="font-bold text-gray-800">{e.id} <span className="text-[10px] font-normal text-gray-500 ml-1">({e.type})</span></div>
-                    <div className="text-xs text-gray-500 mt-1.5 font-medium">{e.location}</div>
-                  </div>
-                  <Icon name="ChevronRight" size={18} className="text-gray-300" />
-                </button>
-              ))}
+              {mockEquipment.filter(e => !selectedDept || e.dept === selectedDept).map(e => {
+                const status = getStatus(e.id);
+                const isInspected = status.code !== 'none';
+                
+                return (
+                  <button 
+                    key={e.id} 
+                    onClick={() => onScan(e.id)} 
+                    className={`w-full px-4 py-3 border rounded-xl text-left transition-colors flex justify-between items-center shadow-sm ${
+                      isInspected 
+                        ? `${status.bg} ${status.border}` 
+                        : 'bg-gray-50 border-gray-200 hover:bg-red-50 hover:text-red-700 hover:border-red-200'
+                    }`}
+                  >
+                    <div>
+                      <div className={`font-bold ${isInspected ? status.text : 'text-gray-800'}`}>
+                        {e.id} <span className={`text-[10px] font-normal ml-1 ${isInspected ? 'opacity-70' : 'text-gray-500'}`}>({e.type})</span>
+                      </div>
+                      <div className={`text-xs mt-1.5 font-medium ${isInspected ? status.text : 'text-gray-500'}`}>
+                        {e.location}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {isInspected && (
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${status.badge}`}>
+                          {status.label}
+                        </span>
+                      )}
+                      <Icon name="ChevronRight" size={18} className={isInspected ? (status.code === 'done' ? 'text-green-500' : 'text-yellow-500') : 'text-gray-300'} />
+                    </div>
+                  </button>
+                )
+              })}
             </div>
           </div>
         </div>
@@ -1196,7 +1229,7 @@
                 <button onClick={()=>setShowScannerModal(false)}><Icon name="XCircle" size={24}/></button>
               </header>
               <div className="flex-1 overflow-y-auto p-4">
-                <Scanner onScan={(id) => {setSearchTerm(id); setShowScannerModal(false);}} mockEquipment={equipmentList} />
+                <Scanner onScan={(id) => {setSearchTerm(id); setShowScannerModal(false);}} mockEquipment={equipmentList} inspections={inspections} currentYear={currentYear} currentMonth={currentMonth} />
               </div>
             </div>
           )}
