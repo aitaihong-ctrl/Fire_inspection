@@ -53,7 +53,7 @@
   <div id="root"></div>
 
   <script type="text/babel">
-    const { useState, useEffect, useRef } = React;
+    const { useState, useEffect, useRef, useMemo } = React;
 
     // ==========================================
     // 系統設定區
@@ -226,12 +226,41 @@
       const currentMonth = currentDate.getMonth() + 1;
 
       const totalItems = dbEquipment.length;
-      const currentMonthInspections = inspections.filter(i => Number(i.year) === Number(currentYear) && Number(i.month) === Number(currentMonth));
       
-      const completedItems = currentMonthInspections.filter(i => i.managerName).length;
-      const pendingItems = currentMonthInspections.filter(i => !i.managerName).length;
-      
-      const abnormalRecords = currentMonthInspections.filter(i => i.hasAbnormal);
+      // ⭐ 修正首頁統計邏輯：以設備為主體，排除同一設備的多筆重複紀錄，只取最新一筆狀態
+      const getUniqueStatusCounts = () => {
+        let completed = 0;
+        let pending = 0;
+        let abnormalRecs = [];
+
+        dbEquipment.forEach(eq => {
+          // 找出該設備在這個月的所有紀錄
+          const eqRecords = inspections.filter(i => 
+            i.equipmentId === eq.id && 
+            Number(i.year) === Number(currentYear) && 
+            Number(i.month) === Number(currentMonth)
+          );
+
+          if (eqRecords.length > 0) {
+            // 只取最新的一筆紀錄代表該設備目前的狀態
+            const latestRecord = eqRecords[eqRecords.length - 1];
+            
+            if (latestRecord.managerName) {
+              completed++;
+            } else {
+              pending++;
+            }
+
+            if (latestRecord.hasAbnormal) {
+              abnormalRecs.push(latestRecord);
+            }
+          }
+        });
+
+        return { completed, pending, abnormalRecs };
+      };
+
+      const { completed: completedItems, pending: pendingItems, abnormalRecs: abnormalRecords } = getUniqueStatusCounts();
       const abnormalItems = abnormalRecords.length;
 
       const fetchData = async () => {
@@ -1338,15 +1367,42 @@
       const [fYear, setFYear] = useState(currentYear);
       const [fMonth, setFMonth] = useState(currentMonth);
 
-      const recordsWithEq = inspections.map(r => ({ ...r, eq: equipmentList.find(e => e.id === r.equipmentId) || {} }));
-      const inspected = recordsWithEq.filter(r => Number(r.year) === Number(fYear) && Number(r.month) === Number(fMonth));
-      const uninspected = equipmentList.filter(e => !inspections.some(i => i.equipmentId === e.id && Number(i.year) === Number(fYear) && Number(i.month) === Number(fMonth))).map(e => ({ equipmentId: e.id, eq: e, isUn: true }));
+      // ⭐ 修改點：改以「設備總表」為主體來建構明細清單，確保總數永遠等於列管設備數
+      const list = useMemo(() => {
+        let result = [];
+        
+        equipmentList.forEach(eq => {
+          // 找出該設備在選定年月的所有點檢紀錄
+          const eqRecords = inspections.filter(i => 
+            i.equipmentId === eq.id && 
+            Number(i.year) === Number(fYear) && 
+            Number(i.month) === Number(fMonth)
+          );
+          
+          if (eqRecords.length === 0) {
+            // 情況 1：未點檢
+            if (mode === 'all' || mode === 'uninspected') {
+              result.push({ equipmentId: eq.id, eq: eq, isUn: true });
+            }
+          } else {
+            // 情況 2：有點檢紀錄。
+            // 為了避免重複紀錄導致數量虛增，這裡只取最新的一筆（假設最後一筆是最新狀態）
+            const latestRecord = eqRecords[eqRecords.length - 1];
+            const recordWithEq = { ...latestRecord, eq: eq, isUn: false };
+            
+            if (mode === 'all') {
+              result.push(recordWithEq);
+            } else if (mode === 'pending' && !latestRecord.managerName) {
+              result.push(recordWithEq);
+            } else if (mode === 'done' && latestRecord.managerName) {
+              result.push(recordWithEq);
+            }
+          }
+        });
+        
+        return result;
+      }, [equipmentList, inspections, fYear, fMonth, mode]);
 
-      let list = [];
-      if (mode === 'uninspected') list = uninspected;
-      else if (mode === 'pending') list = inspected.filter(r => !r.managerName);
-      else if (mode === 'done') list = inspected.filter(r => r.managerName);
-      else list = [...inspected, ...uninspected];
 
       const handleExportCSV = () => {
         if (list.length === 0) return;
