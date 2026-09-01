@@ -107,8 +107,11 @@
       if (!dateStr || dateStr === '-') return '';
       try {
         if (typeof dateStr === 'string' && dateStr.endsWith('Z')) {
-           const d = new Date(dateStr);
-           // ⭐ 修正：直接依賴瀏覽器的本地時區 (台灣時間)
+           // ⭐ 終極修正：Google 送來的字串如果帶 Z，代表它已經是「帶有 8 小時時差的假 UTC 字串」
+           // 我們直接把 Z 拔掉，讓瀏覽器把它當成本地時間解析，就不會再被多加 8 小時了！
+           const cleanStr = dateStr.replace('Z', '');
+           const d = new Date(cleanStr);
+           
            const y = d.getFullYear();
            const m = d.getMonth() + 1;
            const day = d.getDate();
@@ -1820,7 +1823,7 @@
           setAlertMsg(`成功匯入 ${newEquipmentList.length} 筆設備資料！`);
           if(fileInputRef.current) fileInputRef.current.value = '';
 
-          // 呼叫 API 寫入雲端 (包含操作者日誌資訊)
+          // 呼叫 API 寫入雲端
           if (apiUrl) {
             try { 
               await fetch(apiUrl, { method: 'POST', body: JSON.stringify({ action: 'importEquipment', secret: SYSTEM_SECRET_KEY, operator: currentUser.name, data: newEquipmentList }) }); 
@@ -1855,7 +1858,7 @@
           setAlertMsg(`成功匯入 ${finalUserList.length} 筆人員資料！`);
           if(userFileInputRef.current) userFileInputRef.current.value = '';
 
-          // 呼叫 API 寫入雲端 (包含操作者日誌資訊)
+          // 呼叫 API 寫入雲端
           if (apiUrl) {
             try { 
               await fetch(apiUrl, { method: 'POST', body: JSON.stringify({ action: 'importUsers', secret: SYSTEM_SECRET_KEY, operator: currentUser.name, data: finalUserList }) }); 
