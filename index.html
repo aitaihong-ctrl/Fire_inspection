@@ -213,7 +213,6 @@
       const [selectedEqId, setSelectedEqId] = useState(null); 
       const [inspections, setInspections] = useState([]);
       const [dbEquipment, setDbEquipment] = useState([]); 
-      // 🌟 新增狀態：存放每月歷史總數
       const [monthlyStats, setMonthlyStats] = useState([]);
       const [isLoading, setIsLoading] = useState(false);
       const [alertMsg, setAlertMsg] = useState('');
@@ -229,14 +228,12 @@
 
       const totalItems = dbEquipment.length;
       
-      // ⭐ 修正：從「設備總表」去比對當月狀態，排除同一台設備的多筆紀錄
       const getUniqueStatusCounts = () => {
         let completed = 0;
         let pending = 0;
         let abnormalRecs = [];
 
         dbEquipment.forEach(eq => {
-          // 找出該設備在這個月的所有紀錄
           const eqRecords = inspections.filter(i => 
             i.equipmentId === eq.id && 
             Number(i.year) === Number(currentYear) && 
@@ -244,7 +241,6 @@
           );
 
           if (eqRecords.length > 0) {
-            // 只取最新的一筆紀錄代表該設備目前的狀態
             const latestRecord = eqRecords[eqRecords.length - 1];
             
             if (latestRecord.managerName) {
@@ -290,7 +286,6 @@
           const dataUsers = await resUsers.json();
           if (dataUsers && !dataUsers.error) setDbUsers(dataUsers);
           
-          // 🌟 新增 API 呼叫：取得每月歷史設備總數
           try {
             const resStats = await fetch(`${GOOGLE_SHEET_API_URL}?action=getMonthlyStats&secret=${safeSecret}`);
             const dataStats = await resStats.json();
@@ -423,7 +418,8 @@
         }));
         
         if (GOOGLE_SHEET_API_URL) {
-          const payload = { action: 'confirmInspection', secret: SYSTEM_SECRET_KEY, equipmentId: eqId, year: currentYear, month: currentMonth, managerName: currentUser.name, managerIp: ip };
+          // 🚨 將 managerDate: confDate 加進 payload 裡
+          const payload = { action: 'confirmInspection', secret: SYSTEM_SECRET_KEY, equipmentId: eqId, year: currentYear, month: currentMonth, managerName: currentUser.name, managerIp: ip, managerDate: confDate };
           try {
             setIsLoading(true);
             const res = await fetch(GOOGLE_SHEET_API_URL, { method: 'POST', body: JSON.stringify(payload) });
@@ -782,7 +778,6 @@
         let hPending = 0;
         let hAbnormal = 0;
         
-        // 🌟 修正：從對照表抓取該月份的歷史總數，若無紀錄則退回使用目前最新總數
         const targetMonthId = `${historyYear}-${String(historyMonth).padStart(2, '0')}`;
         const matchedStat = monthlyStats?.find(s => s.month_id === targetMonthId);
         const hTotal = matchedStat ? Number(matchedStat.total) : equipmentList.length;
@@ -1481,42 +1476,22 @@
       const [fYear, setFYear] = useState(currentYear);
       const [fMonth, setFMonth] = useState(currentMonth);
 
-      // ⭐ 修改點：改以「設備總表」為主體來建構明細清單，確保總數永遠等於列管設備數
       const list = useMemo(() => {
         let result = [];
-        
         equipmentList.forEach(eq => {
-          // 找出該設備在選定年月的所有點檢紀錄
-          const eqRecords = inspections.filter(i => 
-            i.equipmentId === eq.id && 
-            Number(i.year) === Number(fYear) && 
-            Number(i.month) === Number(fMonth)
-          );
-          
+          const eqRecords = inspections.filter(i => i.equipmentId === eq.id && Number(i.year) === Number(fYear) && Number(i.month) === Number(fMonth));
           if (eqRecords.length === 0) {
-            // 情況 1：未點檢
-            if (mode === 'all' || mode === 'uninspected') {
-              result.push({ equipmentId: eq.id, eq: eq, isUn: true });
-            }
+            if (mode === 'all' || mode === 'uninspected') result.push({ equipmentId: eq.id, eq: eq, isUn: true });
           } else {
-            // 情況 2：有點檢紀錄。
-            // 為了避免重複紀錄導致數量虛增，這裡只取最新的一筆（假設最後一筆是最新狀態）
             const latestRecord = eqRecords[eqRecords.length - 1];
             const recordWithEq = { ...latestRecord, eq: eq, isUn: false };
-            
-            if (mode === 'all') {
-              result.push(recordWithEq);
-            } else if (mode === 'pending' && !latestRecord.managerName) {
-              result.push(recordWithEq);
-            } else if (mode === 'done' && latestRecord.managerName) {
-              result.push(recordWithEq);
-            }
+            if (mode === 'all') result.push(recordWithEq);
+            else if (mode === 'pending' && !latestRecord.managerName) result.push(recordWithEq);
+            else if (mode === 'done' && latestRecord.managerName) result.push(recordWithEq);
           }
         });
-        
         return result;
       }, [equipmentList, inspections, fYear, fMonth, mode]);
-
 
       const handleExportCSV = () => {
         if (list.length === 0) return;
