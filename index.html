@@ -93,8 +93,9 @@
     const getLocalFormattedTime = () => {
       const d = new Date();
       const y = d.getFullYear();
-      const m = d.getMonth() + 1;
-      const day = d.getDate();
+      // 強制補零
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
       let h = d.getHours();
       const min = d.getMinutes().toString().padStart(2, '0');
       const sec = d.getSeconds().toString().padStart(2, '0');
@@ -103,18 +104,35 @@
       return `${y}/${m}/${day} ${ampm}${h12}:${min}:${sec}`;
     };
 
+    // 🌟 終極時區與格式統一解析器 (yyyy/MM/dd 強制補零版)
     const formatTimeDisplay = (dateStr) => {
       if (!dateStr || dateStr === '-') return '';
       try {
-        if (typeof dateStr === 'string' && dateStr.endsWith('Z')) {
-           // ⭐ 終極修正：Google 送來的字串如果帶 Z，代表它已經是「帶有 8 小時時差的假 UTC 字串」
-           // 我們直接把 Z 拔掉，讓瀏覽器把它當成本地時間解析，就不會再被多加 8 小時了！
-           const cleanStr = dateStr.replace('Z', '');
-           const d = new Date(cleanStr);
-           
+        const str = String(dateStr).trim();
+        
+        // 1. 如果字串包含中文的「上午」或「下午」，拆開重組並強制為 yyyy/MM/dd
+        if (str.includes('上午') || str.includes('下午')) {
+          const match = str.match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})\s*(上午|下午)\s*(\d{1,2}):(\d{1,2}):(\d{1,2})/);
+          if (match) {
+            const y = match[1];
+            const m = match[2].padStart(2, '0'); // 強制補零
+            const d = match[3].padStart(2, '0'); // 強制補零
+            const ampm = match[4];
+            const h = parseInt(match[5], 10); 
+            const min = match[6].padStart(2, '0'); 
+            const sec = match[7].padStart(2, '0'); 
+            return `${y}/${m}/${d} ${ampm}${h}:${min}:${sec}`;
+          }
+          return str; 
+        }
+
+        // 2. 如果是舊版殘留帶有 Z 的 UTC 字串，進行手動轉換並補零
+        if (str.endsWith('Z') || str.includes('T')) {
+           const d = new Date(str);
+           if(isNaN(d.getTime())) return str;
            const y = d.getFullYear();
-           const m = d.getMonth() + 1;
-           const day = d.getDate();
+           const m = String(d.getMonth() + 1).padStart(2, '0');
+           const day = String(d.getDate()).padStart(2, '0');
            let h = d.getHours();
            const min = d.getMinutes().toString().padStart(2, '0');
            const sec = d.getSeconds().toString().padStart(2, '0');
@@ -122,7 +140,7 @@
            const h12 = h % 12 || 12;
            return `${y}/${m}/${day} ${ampm}${h12}:${min}:${sec}`;
         }
-        return dateStr;
+        return str;
       } catch (e) {
         return dateStr;
       }
