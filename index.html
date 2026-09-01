@@ -213,6 +213,8 @@
       const [selectedEqId, setSelectedEqId] = useState(null); 
       const [inspections, setInspections] = useState([]);
       const [dbEquipment, setDbEquipment] = useState([]); 
+      // 🌟 新增狀態：存放每月歷史總數
+      const [monthlyStats, setMonthlyStats] = useState([]);
       const [isLoading, setIsLoading] = useState(false);
       const [alertMsg, setAlertMsg] = useState('');
       
@@ -227,7 +229,7 @@
 
       const totalItems = dbEquipment.length;
       
-      // ⭐ 修正首頁統計邏輯：以設備為主體，排除同一設備的多筆重複紀錄，只取最新一筆狀態
+      // ⭐ 修正：從「設備總表」去比對當月狀態，排除同一台設備的多筆紀錄
       const getUniqueStatusCounts = () => {
         let completed = 0;
         let pending = 0;
@@ -287,6 +289,16 @@
           const resUsers = await fetch(`${GOOGLE_SHEET_API_URL}?action=getUsers&secret=${safeSecret}`);
           const dataUsers = await resUsers.json();
           if (dataUsers && !dataUsers.error) setDbUsers(dataUsers);
+          
+          // 🌟 新增 API 呼叫：取得每月歷史設備總數
+          try {
+            const resStats = await fetch(`${GOOGLE_SHEET_API_URL}?action=getMonthlyStats&secret=${safeSecret}`);
+            const dataStats = await resStats.json();
+            if (dataStats && !dataStats.error) setMonthlyStats(dataStats);
+          } catch (e) {
+            console.warn("尚未建立或無法讀取 MonthlyStats 工作表", e);
+          }
+
         } catch(e) { 
           console.error(e); 
         }
@@ -530,8 +542,7 @@
             {activeTab === 'dashboard' && (
               <Dashboard 
                 total={totalItems} completed={completedItems} pending={pendingItems} abnormal={abnormalItems} abnormalRecords={abnormalRecords} 
-                equipmentList={dbEquipment} currentYear={currentYear} currentMonth={currentMonth} 
-                inspections={inspections}
+                equipmentList={dbEquipment} currentYear={currentYear} currentMonth={currentMonth} inspections={inspections} monthlyStats={monthlyStats}
                 onScan={() => navigateTo('scanner')} onViewList={() => navigateTo('list')} onBatchPrint={() => navigateTo('batch-print')} 
               />
             )}
@@ -756,7 +767,7 @@
     // ==========================================
     // 首頁與 AI 總結 (Dashboard)
     // ==========================================
-    function Dashboard({ total, completed, pending, abnormal, abnormalRecords, equipmentList, currentYear, currentMonth, inspections, onScan, onViewList, onBatchPrint }) {
+    function Dashboard({ total, completed, pending, abnormal, abnormalRecords, equipmentList, currentYear, currentMonth, inspections, monthlyStats, onScan, onViewList, onBatchPrint }) {
       const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
       const [aiSummary, setAiSummary] = useState('');
       const [isGeneratingAI, setIsGeneratingAI] = useState(false);
@@ -766,11 +777,15 @@
       const [historyMonth, setHistoryMonth] = useState(currentMonth === 1 ? 12 : currentMonth - 1);
       const [showHistory, setShowHistory] = useState(false);
 
-      // 計算歷史月份的數據
       const historyData = useMemo(() => {
         let hCompleted = 0;
         let hPending = 0;
         let hAbnormal = 0;
+        
+        // 🌟 修正：從對照表抓取該月份的歷史總數，若無紀錄則退回使用目前最新總數
+        const targetMonthId = `${historyYear}-${String(historyMonth).padStart(2, '0')}`;
+        const matchedStat = monthlyStats?.find(s => s.month_id === targetMonthId);
+        const hTotal = matchedStat ? Number(matchedStat.total) : equipmentList.length;
 
         equipmentList.forEach(eq => {
           const eqRecords = inspections.filter(i => 
@@ -792,9 +807,14 @@
           }
         });
 
-        return { hCompleted, hPending, hAbnormal, hPercent: total > 0 ? Math.round((hCompleted / total) * 100) : 0 };
-      }, [equipmentList, inspections, historyYear, historyMonth, total]);
-
+        return { 
+          hCompleted, 
+          hPending, 
+          hAbnormal, 
+          hTotal,
+          hPercent: hTotal > 0 ? Math.round((hCompleted / hTotal) * 100) : 0 
+        };
+      }, [inspections, equipmentList, monthlyStats, historyYear, historyMonth]);
 
       const handleGenerateAISummary = async () => {
         setIsGeneratingAI(true);
@@ -927,6 +947,9 @@
                     </div>
                   </div>
                   <div className="flex-1 ml-8 space-y-4">
+                    <div className="flex justify-between items-center border-b pb-2">
+                      <span className="text-sm font-bold text-gray-500">列管總數</span><span className="font-black text-lg text-gray-800">{historyData.hTotal} 筆</span>
+                    </div>
                     <div className="flex justify-between items-center border-b pb-2">
                       <span className="text-sm font-bold text-gray-500">已完成</span><span className="font-black text-lg text-green-600">{historyData.hCompleted} 筆</span>
                     </div>
