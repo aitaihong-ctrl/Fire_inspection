@@ -60,23 +60,26 @@
     // ==========================================
     const GOOGLE_SHEET_API_URL = "https://script.google.com/macros/s/AKfycbwqc1u56dt1tuQiM5FQ_rBkq8zcBXNR0ahd8RYGLarg8O89N98by77eU9k8Hbd6Rjl_/exec"; // 🚨 請填入 GAS 網址
     const SYSTEM_SECRET_KEY = "TCI_FireSafety_2026_!@#";
-    const apiKey = ""; // 🚨 Gemini API 整合 (選用)
 
     // ==========================================
     // API 呼叫工具與全域時間校正
     // ==========================================
     const callGeminiAPI = async (prompt) => {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
-      const payload = { 
-        contents: [{ parts: [{ text: prompt }] }], 
-        systemInstruction: { parts: [{ text: "你是一位專業的廠區工安與消防設備顧問。請用繁體中文回答，語氣專業、簡明扼要。不要使用過度浮誇的詞彙，專注於事實與可執行的建議。" }] } 
-      };
       try {
-        const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        const payload = { action: 'callGeminiAPI', secret: SYSTEM_SECRET_KEY, prompt: prompt };
+        const res = await fetch(GOOGLE_SHEET_API_URL, {
+          method: 'POST',
+          body: JSON.stringify(payload)
+        });
         const data = await res.json();
-        return data.candidates?.[0]?.content?.parts?.[0]?.text || "無法產生內容";
-      } catch (e) { 
-        return "AI 服務暫時無法使用。"; 
+        
+        if (data.status === 'success') {
+          return data.text;
+        } else {
+          throw new Error(data.message || data.error || 'AI 伺服器無回應');
+        }
+      } catch (e) {
+        throw new Error(e.message || "系統連線失敗，無法呼叫 AI 服務。");
       }
     };
 
@@ -93,7 +96,6 @@
     const getLocalFormattedTime = () => {
       const d = new Date();
       const y = d.getFullYear();
-      // 強制補零
       const m = String(d.getMonth() + 1).padStart(2, '0');
       const day = String(d.getDate()).padStart(2, '0');
       let h = d.getHours();
@@ -104,41 +106,30 @@
       return `${y}/${m}/${day} ${ampm}${h12}:${min}:${sec}`;
     };
 
-    // 🌟 終極時區與格式統一解析器 (yyyy/MM/dd 強制補零版)
     const formatTimeDisplay = (dateStr) => {
       if (!dateStr || dateStr === '-') return '';
       try {
         const str = String(dateStr).trim();
-        
-        // 1. 如果字串包含中文的「上午」或「下午」，拆開重組並強制為 yyyy/MM/dd
-        if (str.includes('上午') || str.includes('下午')) {
-          const match = str.match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})\s*(上午|下午)\s*(\d{1,2}):(\d{1,2}):(\d{1,2})/);
-          if (match) {
-            const y = match[1];
-            const m = match[2].padStart(2, '0'); // 強制補零
-            const d = match[3].padStart(2, '0'); // 強制補零
-            const ampm = match[4];
-            const h = parseInt(match[5], 10); 
-            const min = match[6].padStart(2, '0'); 
-            const sec = match[7].padStart(2, '0'); 
-            return `${y}/${m}/${d} ${ampm}${h}:${min}:${sec}`;
+        const match = str.match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})\s*(上午|下午|AM|PM|am|pm)?\s*(\d{1,2}):(\d{1,2}):(\d{1,2})/);
+        if (match) {
+          const y = match[1];
+          const m = match[2].padStart(2, '0');
+          const d = match[3].padStart(2, '0');
+          const ampmStr = match[4];
+          const h = match[5];
+          const min = match[6].padStart(2, '0');
+          const sec = match[7].padStart(2, '0');
+          
+          let finalAmpm = ampmStr;
+          let finalH = parseInt(h, 10);
+          
+          if (!finalAmpm) {
+             finalAmpm = finalH >= 12 ? '下午' : '上午';
+             finalH = finalH % 12 || 12;
+          } else {
+             finalAmpm = (finalAmpm.toUpperCase() === 'PM' || finalAmpm === '下午') ? '下午' : '上午';
           }
-          return str; 
-        }
-
-        // 2. 如果是舊版殘留帶有 Z 的 UTC 字串，進行手動轉換並補零
-        if (str.endsWith('Z') || str.includes('T')) {
-           const d = new Date(str);
-           if(isNaN(d.getTime())) return str;
-           const y = d.getFullYear();
-           const m = String(d.getMonth() + 1).padStart(2, '0');
-           const day = String(d.getDate()).padStart(2, '0');
-           let h = d.getHours();
-           const min = d.getMinutes().toString().padStart(2, '0');
-           const sec = d.getSeconds().toString().padStart(2, '0');
-           const ampm = h >= 12 ? '下午' : '上午';
-           const h12 = h % 12 || 12;
-           return `${y}/${m}/${day} ${ampm}${h12}:${min}:${sec}`;
+          return `${y}/${m}/${d} ${finalAmpm}${finalH}:${min}:${sec}`;
         }
         return str;
       } catch (e) {
@@ -234,7 +225,7 @@
       const [selectedEqId, setSelectedEqId] = useState(null); 
       const [inspections, setInspections] = useState([]);
       const [dbEquipment, setDbEquipment] = useState([]); 
-      const [monthlyStats, setMonthlyStats] = useState([]); // ⭐ 加入對照表狀態
+      const [monthlyStats, setMonthlyStats] = useState([]); 
       const [isLoading, setIsLoading] = useState(false);
       const [alertMsg, setAlertMsg] = useState('');
       
@@ -418,7 +409,6 @@
         }));
         
         if (GOOGLE_SHEET_API_URL) {
-          // ⭐ 加入 managerDate 到 payload 中送出
           const payload = { 
             action: 'confirmInspection', 
             secret: SYSTEM_SECRET_KEY, 
@@ -549,10 +539,11 @@
                 total={currentData.total} completed={currentData.completed} pending={currentData.pending} abnormal={currentData.abnormal} abnormalRecords={currentData.abnormalRecords} 
                 equipmentList={dbEquipment} inspections={inspections} monthlyStats={monthlyStats} currentYear={currentYear} currentMonth={currentMonth} 
                 onScan={() => navigateTo('scanner')} onViewList={() => navigateTo('list')} onBatchPrint={() => navigateTo('batch-print')} 
+                setAlertMsg={setAlertMsg}
               />
             )}
             {activeTab === 'scanner' && <Scanner onScan={handleScan} mockEquipment={dbEquipment} inspections={inspections} currentYear={currentYear} currentMonth={currentMonth} />}
-            {activeTab === 'form' && scannedEq && <InspectionForm equipment={scannedEq} currentUser={currentUser} onSubmit={submitInspection} onCancel={() => navigateTo('dashboard')} />}
+            {activeTab === 'form' && scannedEq && <InspectionForm equipment={scannedEq} currentUser={currentUser} onSubmit={submitInspection} onCancel={() => navigateTo('dashboard')} setAlertMsg={setAlertMsg} />}
             {activeTab === 'list' && (
               <EquipmentList 
                 equipmentList={dbEquipment} inspections={inspections} 
@@ -772,7 +763,7 @@
     // ==========================================
     // 首頁與 AI 總結 (Dashboard)
     // ==========================================
-    function Dashboard({ total, completed, pending, abnormal, abnormalRecords, equipmentList, inspections, monthlyStats, currentYear, currentMonth, onScan, onViewList, onBatchPrint }) {
+    function Dashboard({ total, completed, pending, abnormal, abnormalRecords, equipmentList, inspections, monthlyStats, currentYear, currentMonth, onScan, onViewList, onBatchPrint, setAlertMsg }) {
       const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
       const [aiSummary, setAiSummary] = useState('');
       const [isGeneratingAI, setIsGeneratingAI] = useState(false);
@@ -782,9 +773,10 @@
       const [historyYear, setHistoryYear] = useState(currentMonth === 1 ? currentYear - 1 : currentYear);
       const [historyMonth, setHistoryMonth] = useState(currentMonth === 1 ? 12 : currentMonth - 1);
 
-      // 歷史進度資料計算 (與當月進度邏輯一致)
+      // 🌟 1. 修改歷史進度資料計算 (讓它一併記錄該月的異常明細)
       const historyData = useMemo(() => {
         let hCompleted = 0, hPending = 0, hAbnormal = 0;
+        let hAbnormalRecords = []; 
         
         equipmentList.forEach(eq => {
           const eqRecords = inspections.filter(i => i.equipmentId === eq.id && Number(i.year) === Number(historyYear) && Number(i.month) === Number(historyMonth));
@@ -792,11 +784,13 @@
             const latestRecord = eqRecords[eqRecords.length - 1]; 
             if (latestRecord.managerName) hCompleted++;
             else hPending++;
-            if (latestRecord.hasAbnormal) hAbnormal++;
+            if (latestRecord.hasAbnormal) {
+               hAbnormal++;
+               hAbnormalRecords.push(latestRecord);
+            }
           }
         });
 
-        // 嘗試從 MonthlyStats 中尋找該歷史月份的列管總數
         const targetMonthId = `${historyYear}-${String(historyMonth).padStart(2, '0')}`;
         const statsRecord = monthlyStats.find(s => s.month_id === targetMonthId);
         const hTotal = statsRecord ? Number(statsRecord.total) : equipmentList.length;
@@ -806,28 +800,31 @@
           completed: hCompleted, 
           pending: hPending, 
           abnormal: hAbnormal,
+          abnormalRecords: hAbnormalRecords,
           percent: hTotal > 0 ? Math.round((hCompleted / hTotal) * 100) : 0
         };
       }, [historyYear, historyMonth, equipmentList, inspections, monthlyStats]);
 
+      // 🌟 2. 將 AI 提示詞改為使用 historyYear, historyMonth 與 historyData
       const handleGenerateAISummary = async () => {
         setIsGeneratingAI(true);
         try {
-          let prompt = `請以專業且簡潔的繁體中文，為 ${currentYear} 年 ${currentMonth} 月的「廠區消防設備點檢」撰寫一份 150 字以內的高階主管總結報告。\n本月數據：列管總設備數 ${total} 筆，已完成簽核 ${completed} 筆，待主管確認 ${pending} 筆，發現異常設備 ${abnormal} 筆。\n`;
-          if (abnormal > 0) {
+          let prompt = `請以專業且簡潔的繁體中文，為 ${historyYear} 年 ${historyMonth} 月的「廠區消防設備點檢」撰寫一份 150 字以內的高階主管總結報告。\n該月數據：列管總設備數 ${historyData.total} 筆，已完成簽核 ${historyData.completed} 筆，待主管確認 ${historyData.pending} 筆，發現異常設備 ${historyData.abnormal} 筆。\n`;
+          if (historyData.abnormal > 0) {
             prompt += `異常設備明細如下：\n`;
-            abnormalRecords.forEach(rec => {
+            historyData.abnormalRecords.forEach(rec => {
               const eq = equipmentList.find(e => e.id === rec.equipmentId);
               prompt += `- 設備 [${rec.equipmentId}] (${eq?.type || '未知'}): ${rec.remark || '未填寫備註'}\n`;
             });
             prompt += `請總結這些安全隱患，並給出後續修繕與防範的具體建議。`;
           } else {
-            prompt += `本月全廠區設備皆正常。請給予巡檢團隊鼓勵，並簡單提醒未來的日常維護注意事項。`;
+            prompt += `該月全廠區設備皆正常。請給予巡檢團隊鼓勵，並簡單提醒未來的日常維護注意事項。`;
           }
           const summaryText = await callGeminiAPI(prompt);
           setAiSummary(summaryText);
         } catch (error) { 
-          alert(error.message); 
+          if (setAlertMsg) setAlertMsg(error.message);
+          else alert(error.message);
         } finally { 
           setIsGeneratingAI(false); 
         }
@@ -845,7 +842,7 @@
           <div className="bg-white rounded-3xl shadow-sm border border-purple-100 p-6 relative overflow-hidden">
              <div className="flex items-center justify-between mb-4">
                <h2 className="text-purple-800 font-bold flex items-center gap-2 text-lg">
-                 <Icon name="Sparkles" size={24} className="text-purple-500" /> AI 安檢總結報告
+                 <Icon name="Sparkles" size={24} className="text-purple-500" /> AI 安檢總結報告 ({historyYear}年 {historyMonth}月)
                </h2>
              </div>
              
@@ -856,7 +853,7 @@
                </div>
              ) : (
                <p className="text-sm text-gray-500 mb-5 leading-relaxed">
-                 透過 Gemini 語言模型，一鍵自動分析本月點檢數據與異常紀錄，快速產生高階主管專用的決策摘要。
+                 透過 Gemini 語言模型，一鍵自動分析該月點檢數據與異常紀錄，快速產生高階主管專用的決策摘要。
                </p>
              )}
              
@@ -1154,7 +1151,7 @@
     // ==========================================
     // 填寫點檢表單
     // ==========================================
-    function InspectionForm({ equipment, currentUser, onSubmit, onCancel }) {
+    function InspectionForm({ equipment, currentUser, onSubmit, onCancel, setAlertMsg }) {
       const isExt = equipment.type === '滅火器';
       const questions = isExt ? EXTINGUISHER_QUESTIONS : HYDRANT_QUESTIONS;
       
@@ -1184,7 +1181,8 @@
             return trimmedPrev ? `${trimmedPrev}\n\n【AI 建議】\n${suggestion.trim()}` : suggestion.trim(); 
           });
         } catch (error) { 
-          alert(error.message); 
+          if(setAlertMsg) setAlertMsg(error.message);
+          else alert(error.message);
         } finally { 
           setIsGeneratingAI(false); 
         }
