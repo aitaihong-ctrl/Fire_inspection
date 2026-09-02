@@ -265,20 +265,29 @@
           const resIns = await fetch(`${GOOGLE_SHEET_API_URL}?action=getInspections&secret=${safeSecret}`);
           const dataIns = await resIns.json();
           if (dataIns && !dataIns.error) {
-            setInspections(dataIns.map(i => ({ 
-              ...i, 
-              date: formatTimeDisplay(i.date),
-              managerDate: formatTimeDisplay(i.managerDate),
-              answers: typeof i.answers === 'string' ? JSON.parse(i.answers) : i.answers, 
-              hasAbnormal: String(i.hasAbnormal).toLowerCase() === 'true' 
-            })));
+            // 🌟 加入「防呆解析裝甲」，防止單一筆損壞的資料導致整個畫面空白
+            setInspections(dataIns.map(i => {
+              let parsedAnswers = {};
+              try { 
+                parsedAnswers = typeof i.answers === 'string' ? JSON.parse(i.answers) : i.answers; 
+              } catch(e) { 
+                console.warn("解析失敗的答案，已自動略過:", i.answers); 
+              }
+              
+              return { 
+                ...i, 
+                date: formatTimeDisplay(i.date),
+                managerDate: formatTimeDisplay(i.managerDate),
+                answers: parsedAnswers, 
+                hasAbnormal: String(i.hasAbnormal).toLowerCase() === 'true' 
+              };
+            }));
           }
 
           const resUsers = await fetch(`${GOOGLE_SHEET_API_URL}?action=getUsers&secret=${safeSecret}`);
           const dataUsers = await resUsers.json();
           if (dataUsers && !dataUsers.error) setDbUsers(dataUsers);
 
-          // 抓取自動產生的每月統計對照表
           try {
             const resStats = await fetch(`${GOOGLE_SHEET_API_URL}?action=getMonthlyStats&secret=${safeSecret}`);
             const dataStats = await resStats.json();
@@ -286,7 +295,7 @@
           } catch(e) { console.error("MonthlyStats 讀取失敗", e); }
 
         } catch(e) { 
-          console.error(e); 
+          console.error("資料獲取失敗:", e); 
         }
         setIsLoading(false);
       };
@@ -1634,8 +1643,8 @@
                     <td className="border border-black p-1 text-left align-middle font-bold text-gray-800 whitespace-pre-line break-words leading-tight">{q.text}</td>
                     {months.map(m => {
                       const rec = eqIns.find(i=>Number(i.month)===m);
-                      const isN = rec && rec.answers[q.id]==='normal';
-                      const isA = rec && rec.answers[q.id]==='abnormal';
+                      const isN = rec && rec.answers && rec.answers[q.id]==='normal';
+                      const isA = rec && rec.answers && rec.answers[q.id]==='abnormal';
                       const hasWeight = isExt && q.id==='q1' && rec?.weight;
                       return (
                         <React.Fragment key={m}>
